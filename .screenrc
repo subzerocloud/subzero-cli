@@ -1,0 +1,17 @@
+startup_message off
+
+split
+screen -t "openresty" bash
+stuff "$BASEDIR/devutils/follow_db_logs.sh^M"
+
+focus up
+screen -t "database" bash
+stuff "$BASEDIR/devutils/follow_openresty_logs.sh^M"
+
+split
+focus down
+screen -t "watch" bash
+stuff "$BASEDIR/devutils/watch_changes.sh^M"
+resize 5
+
+
