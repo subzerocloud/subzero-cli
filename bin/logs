@@ -1,0 +1,6 @@
+#!/bin/bash
+
+SYSTEM=$1
+CMD="follow_${SYSTEM}_logs.sh"
+
+$CMD
