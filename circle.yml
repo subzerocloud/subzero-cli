@@ -8,10 +8,10 @@ dependencies:
 
 test:
   override:
-    - docker build -t $AWS_REPO/rabbitmq:latest .
+    - docker build -t $AWS_REPO/devtools:latest .
 
 deployment:
     prod:
       branch: master
       commands:
-        - docker push $AWS_REPO/rabbitmq:latest
+        - docker push $AWS_REPO/devtools:latest
