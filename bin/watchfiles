@@ -10,8 +10,11 @@ OPENRESTY_CONTAINER=${COMPOSE_PROJECT_NAME}_openresty_1
 POSTGREST_CONTAINER=${COMPOSE_PROJECT_NAME}_postgrest_1 
 RESET_DB_SCRIPT=resetdb
 TIMESTAMP_FILE=${BASEDIR}/lastupdate.txt
-RESET_DB_ALLOWED=${RESET_DB_ALLOWED:0}
 PSQL_CMD="psql postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST}:5432"
+RESET_DB_ALLOWED=${RESET_DB_ALLOWED:0}
+if [ "$1" == "reset=true" ]; then
+	RESET_DB_ALLOWED=1
+fi
 # there are different monitors available for each system
 # you can check the options for your system with "fswatch -M"
 # if you notice a big delay between when changes are made and when they are detected

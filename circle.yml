@@ -1,0 +1,17 @@
+machine:
+  services:
+    - docker
+
+dependencies:
+  pre:
+    - $( aws ecr get-login --region $AWS_DEFAULT_REGION )
+
+test:
+  override:
+    - docker build -t $AWS_REPO/rabbitmq:latest .
+
+deployment:
+    prod:
+      branch: master
+      commands:
+        - docker push $AWS_REPO/rabbitmq:latest

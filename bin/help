@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# BASEDIR=/project
+# source $BASEDIR/.env
+# export $(grep -v "#" $BASEDIR/.env | cut -d= -f1)
+
+cat <<-EOS
+Usage:	sub0 COMMAND
+
+Commands:
+  help                This screen
+  console             Display the console that will watch for file changes and show live logs
+  logs SUBSYSTEM      Display live the logs of the SUBSYSTEM (db/openresty/rabbitmq)
+  resetdb             Reset the database schema and data
+  watchfiles          Whatch for changes in sql/nginx/lua files and make them live
+
+
+EOS

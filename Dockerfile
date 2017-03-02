@@ -42,10 +42,14 @@ RUN	apt-get remove -y build-essential \
 	&& apt-get autoremove -y \
 	&& apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+RUN apt-get update && apt-get install screen
+RUN wget -q https://raw.githubusercontent.com/memsql/datafiller/master/datafiller -O /usr/local/bin/datafiller \
+	&& chmod +x /usr/local/bin/datafiller
 
 
 COPY bin /usr/local/bin
 COPY docker-entrypoint.sh /usr/local/bin/
+COPY .screenrc /
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["bash"]

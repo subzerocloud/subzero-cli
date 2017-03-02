@@ -1,17 +1,15 @@
 startup_message off
 
 split
-screen -t "openresty" bash
-stuff "$BASEDIR/devutils/follow_db_logs.sh^M"
+screen -t "webserver" bash
+stuff "logs openresty^M"
 
-focus up
+focus down
 screen -t "database" bash
-stuff "$BASEDIR/devutils/follow_openresty_logs.sh^M"
+stuff "logs db^M"
 
 split
 focus down
 screen -t "watch" bash
-stuff "$BASEDIR/devutils/watch_changes.sh^M"
-resize 5
-
-
+stuff "watchfiles^M"
+#resize 5

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+BASEDIR=/project
+# source $BASEDIR/.env
+# export $(grep -v "#" $BASEDIR/.env | cut -d= -f1)
+RESET_DB_ALLOWED=${RESET_DB_ALLOWED:0}
+if [ "$1" == "reset=true" ]; then
+	RESET_DB_ALLOWED=1
+fi
+
+
+RESET_DB_ALLOWED=$RESET_DB_ALLOWED BASEDIR=$BASEDIR screen -c /.screenrc
