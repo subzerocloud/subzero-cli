@@ -5,6 +5,7 @@ machine:
 dependencies:
   pre:
     - $( aws ecr get-login --region $AWS_DEFAULT_REGION )
+    - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
 
 test:
   override:
@@ -15,3 +16,5 @@ deployment:
       branch: master
       commands:
         - docker push $AWS_REPO/devtools:latest
+        - docker tag $AWS_REPO/devtools:latest sub0/devtools:dev
+        - docker push sub0/devtools:dev
