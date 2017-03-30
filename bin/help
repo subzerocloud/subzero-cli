@@ -5,14 +5,14 @@
 # export $(grep -v "#" $BASEDIR/.env | cut -d= -f1)
 
 cat <<-EOS
-Usage:	sub0 COMMAND
+Usage:	subzero COMMAND
 
 Commands:
-  help                This screen
-  console             Display the console that will watch for file changes and show live logs
-  logs SUBSYSTEM      Display live the logs of the SUBSYSTEM (db/openresty/rabbitmq)
-  resetdb             Reset the database schema and data
-  watchfiles          Whatch for changes in sql/nginx/lua files and make them live
-
+  help                             This screen
+  console                          Display the console that will watch for file changes and show live logs
+  logs SUBSYSTEM                   Display live the logs of the SUBSYSTEM (db/openresty/rabbitmq)
+  resetdb                          Reset the database schema and data
+  watchfiles  [reset=false]        Whatch for changes in sql/nginx/lua files and make them live
+  								   If reset is set to true, when the particular sql script fails, resetdb will be called
 
 EOS

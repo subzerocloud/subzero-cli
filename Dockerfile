@@ -60,4 +60,4 @@ CMD ["bash"]
 
 # run with
 # ( source $(pwd)/.env; docker run -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd):/project -l ${COMPOSE_PROJECT_NAME}_db_1:db --network ${COMPOSE_PROJECT_NAME}_default -ti sub0/devtools )
-# alias sub0='function _sub0(){ source $(pwd)/.env; docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd):/project -l ${COMPOSE_PROJECT_NAME}_db_1:db --network ${COMPOSE_PROJECT_NAME}_default -ti sub0/devtools $@; };_sub0'
+# alias subzero='function _sub0(){ source $(pwd)/.env; docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(pwd):/project -l ${COMPOSE_PROJECT_NAME}_db_1:db --network ${COMPOSE_PROJECT_NAME}_default -ti sub0/devtools $@; };_sub0'
