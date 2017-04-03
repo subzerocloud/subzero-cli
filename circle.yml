@@ -16,5 +16,5 @@ deployment:
       branch: master
       commands:
         - docker push $AWS_REPO/devtools:latest
-        - docker tag $AWS_REPO/devtools:latest sub0/devtools:dev
-        - docker push sub0/devtools:dev
+        - docker tag $AWS_REPO/devtools:latest sub0/devtools:latest
+        - docker push sub0/devtools:latest
