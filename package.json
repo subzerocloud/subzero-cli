@@ -7,7 +7,8 @@
   },
   "dependencies": {
     "blessed": "0.1.81",
-    "cli-highlight": "1.1.4"
+    "cli-highlight": "1.1.4",
+    "dotenv": "4.0.0"
   }
 }
 

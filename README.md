@@ -7,12 +7,6 @@ First install the dependencies:
   npm install
 ```
 
-Then change the ```config.json``` with your sub0 docker COMPOSE_PROJECT_NAME:
-
-```json
-  {
-    "composeProjectName" : "sub0boilerplate"
-  }
-```
+You must have the ```.env``` file with COMPOSE_PROJECT_NAME defined.
 
 Then run with ```npm start``` to see the logs.

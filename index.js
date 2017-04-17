@@ -1,9 +1,16 @@
+require('dotenv').config(); //.env file vars added to process.env 
+
 const blessed   = require('blessed')
 const proc      = require('child_process');
 const highlight = require('cli-highlight').highlight;
 const decoder   = new (require('string_decoder').StringDecoder)('utf8');
 
-const COMPOSE_PROJECT_NAME = require("./config.json").composeProjectName;
+const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
+
+if(!COMPOSE_PROJECT_NAME){
+  console.log("\x1b[31mError:\x1b[0m You must set the COMPOSE_PROJECT_NAME var in the .env file");
+  process.exit(0);
+}
 
 let screen = blessed.screen({
   smartCSR: true,
