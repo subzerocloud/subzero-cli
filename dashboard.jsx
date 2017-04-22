@@ -5,7 +5,7 @@ import proc from 'child_process';
 import {highlight} from 'cli-highlight';
 import {StringDecoder} from 'string_decoder'; 
 import {config} from 'dotenv';
-import watcher from 'chokidar';
+import chokidar from 'chokidar';
 
 import React, {Component} from 'react';
 import blessed from 'blessed';
@@ -33,9 +33,9 @@ const pgRestLogsProc = logsProc(`${COMPOSE_PROJECT_NAME}_postgrest_1`);
 const oRestyLogsProc = logsProc(`${COMPOSE_PROJECT_NAME}_openresty_1`);
 const rmqLogsProc = logsProc(`${COMPOSE_PROJECT_NAME}_rabbitmq_1`);
 
-const pgWatcher = watcher.watch(['sql/**/*.sql']);
-const luaWatcher = watcher.watch(['lua/**/*.lua']);
-const nginxWatcher = watcher.watch(['nginx/**/*.conf']);
+const pgWatcher = chokidar.watch('sql/**/*.sql');
+const luaWatcher = chokidar.watch('lua/**/*.lua');
+const nginxWatcher = chokidar.watch('nginx/**/*.conf');
 
 const pgReloaderProc = path => proc.spawn('docker',['exec', `${COMPOSE_PROJECT_NAME}_db_1`, 'psql', '-U', POSTGRES_USER, DB_NAME, '-c', `\\i ${path}`]);
 const nginxHupperProc = () => proc.spawn('docker',['kill', '-s', 'HUP', `${COMPOSE_PROJECT_NAME}_openresty_1`]);
@@ -244,6 +244,9 @@ process.on('exit', () => {
   pgRestLogsProc.kill();
   oRestyLogsProc.kill();
   rmqLogsProc.kill();
+  pgWatcher.close();
+  luaWatcher.close();
+  nginxWatcher.close();
 });
 
 render(<Dashboard />, screen);
