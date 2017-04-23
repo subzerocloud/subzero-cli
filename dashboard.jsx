@@ -37,19 +37,22 @@ const oRestyLogsProc = logsProc(OPENRESTY);
 const rmqLogsProc = logsProc(RMQ);
 
 //Processes that output the tail of log, used for showing the logs after container restart to avoid showing the log from the beginning
-const logsTailProc = container => proc.spawn('docker',['logs', '-f', '--tail=1', container]);
+const logsTailProc = (container, succ, err) => {
+  let p = proc.spawn('docker',['logs', '-f', '--tail=1', container]);
+  p.stdout.on('data', succ);
+  p.stderr.on('data', err);
+  return p;
+}
 let pgTailProc = null;
 let pgRestTailProc = null;
 let oRestyTailProc = null;
 let rmqTailProc = null;
 
-const pgWatcher = chokidar.watch('sql/**/*.sql');
-const luaWatcher = chokidar.watch('lua/**/*.lua');
-const nginxWatcher = chokidar.watch('nginx/**/*.conf');
-
-const pgReloaderProc = path => proc.spawn('docker',['exec', PG, 'psql', '-U', PG_USER, DB_NAME, '-c', `\\i ${path}`]);
+//File Watcher actions
+let watcher = null;
+const watch = () => chokidar.watch(['sql/**/*.sql', 'lua/**/*.lua', 'nginx/**/*.conf']);
+const pgReloaderProc = path => proc.spawn('docker',['exec', PG, 'psql', '-U', POSTGRES_USER, DB_NAME, '-c', `\\i ${path}`]);
 const nginxHupperProc = () => proc.spawn('docker',['kill', '-s', 'HUP', OPENRESTY]);
-
 const restartProc = (container, succ, err) => {
   let p = proc.spawn('docker',['restart', container]);
   p.stdout.on('data', succ);
@@ -57,7 +60,9 @@ const restartProc = (container, succ, err) => {
 }
 
 const decoder = new StringDecoder('utf8');
-const prettyPrint = (data, lang) => highlight(decoder.write(data), {language : lang});
+//Workaround for a bug in the highlighting lib
+const printLog = data => highlight(decoder.write(data), {language : 'accesslog'}).replace(/<span class=\"hljs-string\">/g, '').replace(/<\/span>/g, '');
+const printSQL = data => highlight(decoder.write(data), {language : 'sql'});
 
 class Dashboard extends Component {
   constructor(props) {
@@ -65,7 +70,9 @@ class Dashboard extends Component {
     this.state = { 
       curIdx : 0,
 			hidden : [false, true, true, true],
-      restarted : [false, false, false, false]
+      restarted : [false, false, false, false],
+      stopWatcher : false,
+      startWatcher : false
 		};
   }
   handleKeyPress = (ch, key) => {
@@ -90,48 +97,54 @@ class Dashboard extends Component {
       this.clearRestarts();
     }
     if(ch == '3'){
-      const {restarted} = this.state;
       this.setState({restarted : [true, true, true, true]});
       this.clearRestarts();
+    }
+    if(ch == '4'){
+      this.setState({stopWatcher : true});
+      this.setState({stopWatcher : false}); // To prevent re-stopping
+    }
+    if(ch == '5'){
+      this.setState({startWatcher : true});
+      this.setState({startWatcher : false}); // To prevent re-starting
     }
   }
   // To prevent re-restarting
   clearRestarts = () => this.setState({restarted : [false, false, false, false]})
   render() {
-    const { hidden, restarted } = this.state;
+    const { hidden, restarted, stopWatcher, startWatcher } = this.state;
     return (
       <element keyable={true} onKeypress={this.handleKeyPress}>
         <PgLog restart={restarted[0]} hidden={hidden[0]}/>
         <ORestyLog restart={restarted[1]} hidden={hidden[1]}/>
         <PgRESTLog restart={restarted[2]} hidden={hidden[2]}/>
         <RMQLog restart={restarted[3]} hidden={hidden[3]}/>
-        <WatcherLog/>
+        <WatcherLog start={startWatcher} stop={stopWatcher}/>
         <Options/>
       </element>
     );
   }
 }
 
-const buttonStyle = {
-	border: {
-		type: 'line'
-	},
-	style: {
-		border: {
-			fg: 'blue'
-		}
-	}
-};
-
 class Options extends Component {
   render(){
+    const buttonStyle = {
+      border: {
+        type: 'line'
+      },
+      style: {
+        border: {
+          fg: 'blue'
+        }
+      }
+    };
     return (
       <layout top="95%" width="100%" height="5%">
         <button class={buttonStyle} content="1: Purge log"/>
         <button class={buttonStyle} content="2: Restart this container"/>
         <button class={buttonStyle} content="3: Restart all containers"/>
-        <button class={buttonStyle} content="4: Stop Watching"/>
-        <button class={buttonStyle} content="5: Start Watching"/>
+        <button class={buttonStyle} content="4: Stop Watcher"/>
+        <button class={buttonStyle} content="5: Start Watcher"/>
         <button class={buttonStyle} content="?: Help"/>
       </layout>
     );
@@ -163,14 +176,16 @@ class PgLog extends Component {
       restartProc(PG, 
         data => {
           logger.log("Done");
-          pgTailProc = logsTailProc(PG);
-          pgTailProc.stderr.on('data', data => logger.log(prettyPrint(data, 'sql')));
+          pgTailProc = logsTailProc(PG, data => logger.log(printSQL(data)),
+                                        data => logger.log(printSQL(data)));
         },
-        data => logger.log(prettyPrint(data, 'accessslog')));
+        data => logger.log(printSQL(data)));
     }
   }
 	componentDidMount(){
-		pgLogsProc.stderr.on('data', data => this.refs.pgLog.log(prettyPrint(data, 'sql')) );
+    const logger = this.refs.pgLog;
+		pgLogsProc.stdout.on('data', data => logger.log(printSQL(data)));
+		pgLogsProc.stderr.on('data', data => logger.log(printSQL(data)));
 	}
   render(){
     const {hidden} = this.props;
@@ -189,18 +204,17 @@ class ORestyLog extends Component {
       restartProc(OPENRESTY, 
         data => {
           logger.log("Done");
-          oRestyTailProc = logsTailProc(OPENRESTY);
-          oRestyTailProc.stdout.on('data', data => logger.log(prettyPrint(data, 'accesslog')));
-          oRestyTailProc.stderr.on('data', data => logger.log(prettyPrint(data, 'accesslog')));
+          oRestyTailProc = logsTailProc(OPENRESTY, data => logger.log(printLog(data)),
+                                                   data => logger.log(printLog(data)));
         },
-        data => logger.log(prettyPrint(data, 'accessslog')));
+        data => logger.log(printLog(data)));
       
     }
   }
 	componentDidMount(){
     const logger = this.refs.oRestyLog;
-		oRestyLogsProc.stdout.on('data', data => logger.log(prettyPrint(data, 'accesslog')));
-		oRestyLogsProc.stderr.on('data', data => logger.log(prettyPrint(data, 'accesslog')));
+		oRestyLogsProc.stdout.on('data', data => logger.log(printLog(data)));
+		oRestyLogsProc.stderr.on('data', data => logger.log(printLog(data)));
 	}
   render() {
     const {hidden} = this.props;
@@ -219,15 +233,15 @@ class RMQLog extends Component {
       restartProc(RMQ, 
         data => {
           logger.log("Done");
-          rmqTailProc = logsTailProc(RMQ);
-          rmqTailProc.stdout.on('data', data => logger.log(prettyPrint(data, 'accesslog')));
-          rmqTailProc.stderr.on('data', data => logger.log(prettyPrint(data, 'accesslog')));
+          rmqTailProc = logsTailProc(RMQ, data => logger.log(printLog(data)),
+                                          data => logger.log(printLog(data)));
         },
-        data => logger.log(prettyPrint(data, 'accessslog')));
+        data => logger.log(printLog(data)));
     }
   }
 	componentDidMount(){
-		rmqLogsProc.stdout.on('data', data => this.refs.rmqLog.log(prettyPrint(data, 'accesslog')));
+		rmqLogsProc.stdout.on('data', data => this.refs.rmqLog.log(printLog(data)));
+		rmqLogsProc.stderr.on('data', data => this.refs.rmqLog.log(printLog(data)));
 	}
   render() {
     const {hidden} = this.props;
@@ -246,14 +260,15 @@ class PgRESTLog extends Component {
       restartProc(PGREST, 
         data => {
           logger.log("Done");
-          pgRestTailProc = logsTailProc(PGREST);
-          pgRestTailProc.stdout.on('data', data => logger.log(prettyPrint(data, 'accesslog')));
+          pgRestTailProc = logsTailProc(PGREST, data => logger.log(printLog(data)),
+                                                data => logger.log(printLog(data)));
         },
-        data => logger.log(prettyPrint(data, 'accessslog')));
+        data => logger.log(printLog(data)));
     }
   }
 	componentDidMount(){
-		pgRestLogsProc.stdout.on('data', data => this.refs.pgRestLog.log(prettyPrint(data, 'accesslog')));
+		pgRestLogsProc.stdout.on('data', data => this.refs.pgRestLog.log(printLog(data)));
+		pgRestLogsProc.stderr.on('data', data => this.refs.pgRestLog.log(printLog(data)));
 	}
   render() {
     const {hidden} = this.props;
@@ -265,35 +280,45 @@ class PgRESTLog extends Component {
 }
 
 class WatcherLog extends Component {
-	componentDidMount(){
+  componentWillReceiveProps(nextProps){
     let logger = this.refs.watcherLog;
-    pgWatcher
+    if(nextProps.stop){
+      watcher.close();
+      logger.log("Watcher stopped");
+    }
+    if(nextProps.start){
+      watcher.close(); //Prevent previous watcher from rewatching
+      watcher = watch();
+      logger.log("Watcher started");
+      this.watcherActions();
+    }
+  }
+  watcherActions = () => {
+    let logger = this.refs.watcherLog;
+    watcher
       .on('change', path => {
-        let p = pgReloaderProc(path.replace('sql/', DB_DIR));
         logger.log(`${path} changed`);
-        p.stdout.on('data', data => logger.log(prettyPrint(data, 'sql')));
-        p.stderr.on('data', data => logger.log(prettyPrint(data, 'sql')));
+        if(path.endsWith(".sql")){
+          let p = pgReloaderProc(path.replace('sql/', DB_DIR));
+          p.stdout.on('data', data => logger.log(printSQL(data)));
+          p.stderr.on('data', data => logger.log(printSQL(data)));
+        }else{
+          let p = nginxHupperProc();
+          p.stdout.on('data', data => logger.log("Nginx restarted"));
+        }
       })
-      .on('ready', () => logger.log('Watching sql/ directory for changes'));
-    luaWatcher
-      .on('change', path => {
-        let p = nginxHupperProc();
-        logger.log(`${path} changed`);
-        p.stdout.on('data', data => logger.log("Nginx restarted"));
-      })
-      .on('ready', () => logger.log('Watching lua/ directory for changes'));
-    nginxWatcher
-      .on('change', path => {
-        let p = nginxHupperProc();
-        logger.log(`${path} changed`);
-        p.stdout.on('data', data => logger.log("Nginx restarted"));
-      })
-      .on('ready', () => logger.log('Watching nginx/ directory for changes'));
+      .on('ready', () => logger.log('Watching sql/ directory for changes', 
+                                    'Watching nginx/ directory for changes',
+                                    'Watching lua/ directory for changes'));
+  }
+	componentDidMount(){
+    watcher = watch();
+    this.watcherActions();
 	}
   render() {
     const {hidden} = this.props;
     return (
-      <log hidden={hidden} ref="watcherLog" label="File watcher" class={logStyle}
+      <log hidden={hidden} ref="watcherLog" label="Watcher" class={logStyle}
            left="70%" width="30%" height="95%"/>
     );
   }
@@ -309,6 +334,8 @@ screen.key(['escape', 'q', 'C-c'], (ch, key) => {
   return process.exit(0);
 });
 
+render(<Dashboard />, screen);
+
 process.on('exit', () => {
   pgLogsProc.kill();
   pgRestLogsProc.kill();
@@ -318,9 +345,5 @@ process.on('exit', () => {
   if(pgRestTailProc) pgRestTailProc.kill();
   if(oRestyTailProc) oRestyTailProc.kill();
   if(rmqTailProc) rmqTailProc.kill();
-  pgWatcher.close();
-  luaWatcher.close();
-  nginxWatcher.close();
+  watcher.close();
 });
-
-render(<Dashboard />, screen);
