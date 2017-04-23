@@ -75,36 +75,38 @@ class Dashboard extends Component {
       startWatcher : false
 		};
   }
-  handleKeyPress = (ch, key) => {
-    const k = key.name;
-    if(k == "left" || k == "right"){
+  componentDidMount(){
+    this.refs.mainEl.on("element keypress", (el, ch, key) => this.handleKeyPress(key.full));
+  }
+  handleKeyPress = (key) => {
+    if(key == "left" || key == "right"){
       const {hidden} = this.state;
       // Hide current log
       let idx = hidden.findIndex( x => !x );
       hidden[idx] = true;
       // Show next log and iterate circularly
-      if(k == "left")
+      if(key == "left")
         idx = (idx - 1 == -1)?(hidden.length - 1):(idx - 1);
-      if(k == "right")
+      if(key == "right")
         idx = (idx + 1 == hidden.length)?0:(idx + 1);
       hidden[idx] = false;
       this.setState({hidden: hidden, curIdx: idx});
     }
-    if(ch == '2'){
+    if(key == '2'){
       const {curIdx, restarted} = this.state;
       restarted[curIdx] = true;
       this.setState({restarted : restarted});
       this.clearRestarts();
     }
-    if(ch == '3'){
+    if(key == '3'){
       this.setState({restarted : [true, true, true, true]});
       this.clearRestarts();
     }
-    if(ch == '4'){
+    if(key == '4'){
       this.setState({stopWatcher : true});
       this.setState({stopWatcher : false}); // To prevent re-stopping
     }
-    if(ch == '5'){
+    if(key == '5'){
       this.setState({startWatcher : true});
       this.setState({startWatcher : false}); // To prevent re-starting
     }
@@ -114,7 +116,7 @@ class Dashboard extends Component {
   render() {
     const { hidden, restarted, stopWatcher, startWatcher } = this.state;
     return (
-      <element keyable={true} onKeypress={this.handleKeyPress}>
+      <element keyable={true} ref="mainEl">
         <PgLog restart={restarted[0]} hidden={hidden[0]}/>
         <ORestyLog restart={restarted[1]} hidden={hidden[1]}/>
         <PgRESTLog restart={restarted[2]} hidden={hidden[2]}/>
