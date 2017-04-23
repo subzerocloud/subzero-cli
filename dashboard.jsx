@@ -87,10 +87,16 @@ class Dashboard extends Component {
       const {curIdx, restarted} = this.state;
       restarted[curIdx] = true;
       this.setState({restarted : restarted});
-      // Workaround to prevent re-restarting
-      this.setState({restarted : [false, false, false, false]});
+      this.clearRestarts();
+    }
+    if(ch == '3'){
+      const {restarted} = this.state;
+      this.setState({restarted : [true, true, true, true]});
+      this.clearRestarts();
     }
   }
+  // To prevent re-restarting
+  clearRestarts = () => this.setState({restarted : [false, false, false, false]})
   render() {
     const { hidden, restarted } = this.state;
     return (
@@ -118,9 +124,6 @@ const buttonStyle = {
 };
 
 class Options extends Component {
-	constructor(props){
-		super(props);
-	}
   render(){
     return (
       <layout top="95%" width="100%" height="5%">
@@ -153,9 +156,6 @@ const logStyle = {
 };
 
 class PgLog extends Component {
-	constructor(props){
-		super(props);
-	}
   componentWillReceiveProps(nextProps){
     const logger = this.refs.pgLog;
     if(nextProps.restart){
@@ -182,9 +182,6 @@ class PgLog extends Component {
 }
 
 class ORestyLog extends Component {
-	constructor(props){
-		super(props);
-	}
   componentWillReceiveProps(nextProps){
     const logger = this.refs.oRestyLog;
     if(nextProps.restart){
@@ -215,9 +212,6 @@ class ORestyLog extends Component {
 }
 
 class RMQLog extends Component {
-	constructor(props){
-		super(props);
-	}
   componentWillReceiveProps(nextProps){
     const logger = this.refs.rmqLog;
     if(nextProps.restart){
@@ -245,9 +239,6 @@ class RMQLog extends Component {
 }
 
 class PgRESTLog extends Component {
-	constructor(props){
-		super(props);
-	}
   componentWillReceiveProps(nextProps){
     const logger = this.refs.pgRestLog;
     if(nextProps.restart){
@@ -274,9 +265,6 @@ class PgRESTLog extends Component {
 }
 
 class WatcherLog extends Component {
-	constructor(props){
-		super(props);
-	}
 	componentDidMount(){
     let logger = this.refs.watcherLog;
     pgWatcher
