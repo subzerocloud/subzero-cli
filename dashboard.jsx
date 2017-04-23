@@ -16,6 +16,8 @@ config();//.env file vars added to process.env
 
 const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
 const POSTGRES_USER = process.env.POSTGRES_USER;
+const POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD;
+const DB_HOST = process.env.DB_HOST;
 const DB_NAME = process.env.DB_NAME;
 const DB_DIR = "docker-entrypoint-initdb.d/";
 
@@ -52,12 +54,34 @@ let rmqTailProc = null;
 let watcher = null;
 const watch = () => chokidar.watch(['sql/**/*.sql', 'lua/**/*.lua', 'nginx/**/*.conf']);
 const pgReloaderProc = path => proc.spawn('docker',['exec', PG, 'psql', '-U', POSTGRES_USER, DB_NAME, '-c', `\\i ${path}`]);
-const nginxHupperProc = () => proc.spawn('docker',['kill', '-s', 'HUP', OPENRESTY]);
+const hupperProc = container => proc.spawn('docker',['kill', '-s', 'HUP', container]);
 const restartProc = (container, succ, err) => {
   let p = proc.spawn('docker',['restart', container]);
   p.stdout.on('data', succ);
   p.stderr.on('data', err);
 }
+
+const resetDBProc = () => {
+  //Ideally all this statements should all be executed in a single command, but doing multiple commands in a psql session is
+  //currently not possible because docker exec -ti doesn't give a tty https://github.com/moby/moby/issues/8755
+  //and stdin cannot be used.
+  let p1 = proc.spawn('docker',['exec', PG, 'psql', '-U', POSTGRES_USER, 'postgres', '-c',
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}'`]);
+  p1.stdout.on('data', data => {
+    let p2 = proc.spawn('docker',['exec', PG, 'psql', '-U', POSTGRES_USER, 'postgres', '-c',
+      `DROP DATABASE if exists ${DB_NAME}`]);
+    p2.stdout.on('data', data => {
+      let p3 = proc.spawn('docker',['exec', PG, 'psql', '-U', POSTGRES_USER, 'postgres', '-c',
+        `CREATE DATABASE ${DB_NAME}`]);
+      p3.stdout.on('data', data => {
+        pgReloaderProc(`${DB_DIR}/init.sql`).stdout.on('data', data => {
+          hupperProc(PGREST);
+          hupperProc(OPENRESTY);
+        });
+      });
+    });
+  });
+};
 
 const decoder = new StringDecoder('utf8');
 //Workaround for a bug in the highlighting lib
@@ -110,6 +134,9 @@ class Dashboard extends Component {
       this.setState({startWatcher : true});
       this.setState({startWatcher : false}); // To prevent re-starting
     }
+    if(key == '6'){
+      resetDBProc();
+    }
   }
   // To prevent re-restarting
   clearRestarts = () => this.setState({restarted : [false, false, false, false]})
@@ -147,6 +174,7 @@ class Options extends Component {
         <button class={buttonStyle} content="3: Restart all containers"/>
         <button class={buttonStyle} content="4: Stop Watcher"/>
         <button class={buttonStyle} content="5: Start Watcher"/>
+        <button class={buttonStyle} content="6: Reset DB"/>
         <button class={buttonStyle} content="?: Help"/>
       </layout>
     );
@@ -305,7 +333,7 @@ class WatcherLog extends Component {
           p.stdout.on('data', data => logger.log(printSQL(data)));
           p.stderr.on('data', data => logger.log(printSQL(data)));
         }else{
-          let p = nginxHupperProc();
+          let p = hupperProc(OPENRESTY);
           p.stdout.on('data', data => logger.log("Nginx restarted"));
         }
       })
