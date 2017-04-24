@@ -95,8 +95,8 @@ class Dashboard extends Component {
       curIdx : 0,
 			hidden : [false, true, true, true],
       restarted : [false, false, false, false],
-      stopWatcher : false,
-      startWatcher : false
+      stoppedWatcher : false,
+      startedWatcher : false
 		};
   }
   componentDidMount(){
@@ -117,39 +117,55 @@ class Dashboard extends Component {
       this.setState({hidden: hidden, curIdx: idx});
     }
     if(key == '2'){
-      const {curIdx, restarted} = this.state;
-      restarted[curIdx] = true;
-      this.setState({restarted : restarted});
-      this.clearRestarts();
+      this.restartContainer();
     }
     if(key == '3'){
-      this.setState({restarted : [true, true, true, true]});
-      this.clearRestarts();
+      this.restartAllContainers();
     }
     if(key == '4'){
-      this.setState({stopWatcher : true});
-      this.setState({stopWatcher : false}); // To prevent re-stopping
+      this.stopWatcher();
     }
     if(key == '5'){
-      this.setState({startWatcher : true});
-      this.setState({startWatcher : false}); // To prevent re-starting
+      this.startWatcher();
     }
     if(key == '6'){
-      resetDBProc();
+      this.resetDB();
     }
   }
-  // To prevent re-restarting
-  clearRestarts = () => this.setState({restarted : [false, false, false, false]})
+  restartContainer = () => {
+    const {curIdx, restarted} = this.state;
+    restarted[curIdx] = true;
+    this.setState({restarted : restarted});
+    this.clearRestarts();
+  }
+  restartAllContainers = () => {
+    this.setState({restarted : [true, true, true, true]});
+    this.clearRestarts();
+  }
+  clearRestarts = () => this.setState({restarted : [false, false, false, false]}) // To prevent re-restarting
+  stopWatcher = () => {
+    this.setState({stoppedWatcher : true});
+    this.setState({stoppedWatcher : false}); // To prevent re-stopping
+  }
+  startWatcher = () => {
+    this.setState({startedWatcher : true});
+    this.setState({startedWatcher : false}); // To prevent re-starting
+  }
+  resetDB = () =>{
+    resetDBProc();
+  }
   render() {
-    const { hidden, restarted, stopWatcher, startWatcher } = this.state;
+    const { hidden, restarted, stoppedWatcher, startedWatcher } = this.state;
+    const { restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB } = this;
     return (
       <element keyable={true} ref="mainEl">
         <PgLog restart={restarted[0]} hidden={hidden[0]}/>
         <ORestyLog restart={restarted[1]} hidden={hidden[1]}/>
         <PgRESTLog restart={restarted[2]} hidden={hidden[2]}/>
         <RMQLog restart={restarted[3]} hidden={hidden[3]}/>
-        <WatcherLog start={startWatcher} stop={stopWatcher}/>
-        <Options/>
+        <WatcherLog started={startedWatcher} stopped={stoppedWatcher}/>
+        <Options restartContainer={restartContainer} restartAllContainers={restartAllContainers} 
+          stopWatcher={stopWatcher} startWatcher={startWatcher} resetDB={resetDB}/>
       </element>
     );
   }
@@ -167,14 +183,15 @@ class Options extends Component {
         }
       }
     };
+    const {restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB} = this.props;
     return (
       <layout top="95%" width="100%" height="5%">
         <button class={buttonStyle} content="1: Purge log"/>
-        <button class={buttonStyle} content="2: Restart this container"/>
-        <button class={buttonStyle} content="3: Restart all containers"/>
-        <button class={buttonStyle} content="4: Stop Watcher"/>
-        <button class={buttonStyle} content="5: Start Watcher"/>
-        <button class={buttonStyle} content="6: Reset DB"/>
+        <button clickable={true} onClick={restartContainer} class={buttonStyle} content="2: Restart this container"/>
+        <button clickable={true} onClick={restartAllContainers} class={buttonStyle} content="3: Restart all containers"/>
+        <button clickable={true} onClick={stopWatcher} class={buttonStyle} content="4: Stop Watcher"/>
+        <button clickable={true} onClick={startWatcher} class={buttonStyle} content="5: Start Watcher"/>
+        <button clickable={true} onClick={resetDB} class={buttonStyle} content="6: Reset DB"/>
         <button class={buttonStyle} content="?: Help"/>
       </layout>
     );
@@ -312,11 +329,11 @@ class PgRESTLog extends Component {
 class WatcherLog extends Component {
   componentWillReceiveProps(nextProps){
     let logger = this.refs.watcherLog;
-    if(nextProps.stop){
+    if(nextProps.stopped){
       watcher.close();
       logger.log("Watcher stopped");
     }
-    if(nextProps.start){
+    if(nextProps.started){
       watcher.close(); //Prevent previous watcher from rewatching
       watcher = watch();
       logger.log("Watcher started");
