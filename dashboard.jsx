@@ -11,6 +11,7 @@ import React, {Component} from 'react';
 import blessed from 'blessed';
 import {render} from 'react-blessed';
 
+import {version} from '../package.json';
 
 config();//.env file vars added to process.env 
 
@@ -96,7 +97,8 @@ class Dashboard extends Component {
 			hidden : [false, true, true, true],
       restarted : [false, false, false, false],
       stoppedWatcher : false,
-      startedWatcher : false
+      startedWatcher : false,
+      hiddenHelp : true
 		};
   }
   componentDidMount(){
@@ -131,6 +133,9 @@ class Dashboard extends Component {
     if(key == '6'){
       this.resetDB();
     }
+    if(key == '?' || key == 'h'){
+      this.hideHelp();
+    }
   }
   restartContainer = () => {
     const {curIdx, restarted} = this.state;
@@ -151,12 +156,15 @@ class Dashboard extends Component {
     this.setState({startedWatcher : true});
     this.setState({startedWatcher : false}); // To prevent re-starting
   }
-  resetDB = () =>{
+  resetDB = () => {
     resetDBProc();
   }
+  hideHelp = () => {
+    this.setState( (prevState, props) => ({hiddenHelp : !prevState.hiddenHelp}));
+  }
   render() {
-    const { hidden, restarted, stoppedWatcher, startedWatcher } = this.state;
-    const { restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB } = this;
+    const { hidden, restarted, stoppedWatcher, startedWatcher, hiddenHelp } = this.state;
+    const { restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB, hideHelp } = this;
     return (
       <element keyable={true} ref="mainEl">
         <PgLog restart={restarted[0]} hidden={hidden[0]}/>
@@ -165,7 +173,8 @@ class Dashboard extends Component {
         <RMQLog restart={restarted[3]} hidden={hidden[3]}/>
         <WatcherLog started={startedWatcher} stopped={stoppedWatcher}/>
         <Options restartContainer={restartContainer} restartAllContainers={restartAllContainers} 
-          stopWatcher={stopWatcher} startWatcher={startWatcher} resetDB={resetDB}/>
+          stopWatcher={stopWatcher} startWatcher={startWatcher} resetDB={resetDB} hideHelp={hideHelp}/>
+        <Help hidden={hiddenHelp}/>
       </element>
     );
   }
@@ -183,7 +192,7 @@ class Options extends Component {
         }
       }
     };
-    const {restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB} = this.props;
+    const {restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB, hideHelp} = this.props;
     return (
       <layout top="95%" width="100%" height="5%">
         <button class={buttonStyle} content="1: Purge log"/>
@@ -192,8 +201,47 @@ class Options extends Component {
         <button clickable={true} onClick={stopWatcher} class={buttonStyle} content="4: Stop Watcher"/>
         <button clickable={true} onClick={startWatcher} class={buttonStyle} content="5: Start Watcher"/>
         <button clickable={true} onClick={resetDB} class={buttonStyle} content="6: Reset DB"/>
-        <button class={buttonStyle} content="?: Help"/>
+        <button clickable={true} onClick={hideHelp} class={buttonStyle} content="?: Help"/>
       </layout>
+    );
+  }
+}
+
+const content = [
+  "{center}{bold}keybindings{/bold}{/center}",
+  "",
+  "{cyan-fg}    left, right{/}  rotate through logs",
+  "{cyan-fg}           h, ?{/}  toggle help",
+  "{cyan-fg} esc, ctrl-c, q{/}  quit",
+  "",
+  "{right}{gray-fg}version: " + version + "{/}"
+].join("\n");
+
+class Help extends Component {
+  render(){
+    const style = {
+      position: {
+        top: "center",
+        left: "center",
+        width: 64,
+        height: 10
+      },
+      border: "line",
+      padding: {
+        left: 1,
+        right: 1
+      },
+      style: {
+        border: {
+          fg: "white"
+        }
+      },
+      tags: true,
+      content: content
+    }
+    const {hidden} = this.props;
+    return (
+      <box class={style} hidden={hidden}/>
     );
   }
 }
@@ -202,8 +250,7 @@ const logStyle = {
 	keys: true,
 	vi: true,
 	mouse: true,
-	border: 'line',
-	scrollback: 95,
+  scrollback: 95,
 	scrollbar: {
 		ch: ' ',
 		style: {
@@ -211,7 +258,8 @@ const logStyle = {
 		}
 	},
 	border: {
-		type: 'line'
+		type: 'line',
+    fg: 'green'
 	}
 };
 
@@ -363,9 +411,24 @@ class WatcherLog extends Component {
     this.watcherActions();
 	}
   render() {
+    const watcherLogStyle = {
+      keys: true,
+      vi: true,
+      mouse: true,
+      scrollback: 95,
+      scrollbar: {
+        ch: ' ',
+        style: {
+          inverse: true
+        }
+      },
+      border: {
+        type: 'line'
+      }
+    };
     const {hidden} = this.props;
     return (
-      <log hidden={hidden} ref="watcherLog" label="Watcher" class={logStyle}
+      <log hidden={hidden} ref="watcherLog" label="Watcher" class={watcherLogStyle}
            left="70%" width="30%" height="95%"/>
     );
   }
