@@ -13,6 +13,6 @@ Commands:
   logs SUBSYSTEM                   Display live the logs of the SUBSYSTEM (db/openresty/rabbitmq)
   resetdb                          Reset the database schema and data
   watchfiles  [reset=false]        Whatch for changes in sql/nginx/lua files and make them live
-  								   If reset is set to true, when the particular sql script fails, resetdb will be called
+                                   If reset is set to true, when the particular sql script fails, resetdb will be called
 
 EOS
