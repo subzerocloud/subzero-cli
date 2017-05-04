@@ -53,7 +53,7 @@ let rmqTailProc = null;
 
 //File Watcher actions
 let watcher = null;
-const watch = () => chokidar.watch(['sql/**/*.sql', 'lua/**/*.lua', 'nginx/**/*.conf']);
+const watch = () => chokidar.watch(['**/*.sql', '**/*.lua', '**/*.conf'], { ignored : '**/tests/**'});
 const pgReloaderProc = path => proc.spawn('docker',['exec', PG, 'psql', '-U', POSTGRES_USER, DB_NAME, '-c', `\\i ${path}`]);
 const hupperProc = container => proc.spawn('docker',['kill', '-s', 'HUP', container]);
 const restartProc = (container, succ, err) => {
