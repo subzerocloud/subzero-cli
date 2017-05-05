@@ -260,7 +260,9 @@ const logStyle = {
 	border: {
 		type: 'line',
     fg: 'green'
-	}
+	},
+  width: "70%",
+  height: "95%"
 };
 
 class PgLog extends Component {
@@ -285,8 +287,7 @@ class PgLog extends Component {
   render(){
     const {hidden} = this.props;
     return (
-      <log onRestart={this.handleRestart} hidden={hidden} ref="pgLog" label="Logs PostgreSQL" class={logStyle}
-           width="70%" height="95%"/>
+      <log onRestart={this.handleRestart} hidden={hidden} ref="pgLog" label="Logs PostgreSQL" class={logStyle}/>
     );
   }
 }
@@ -314,8 +315,7 @@ class ORestyLog extends Component {
   render() {
     const {hidden} = this.props;
     return (
-      <log hidden={hidden} ref="oRestyLog" label="Logs OpenResty" class={logStyle}
-           width="70%" height="95%"/>
+      <log hidden={hidden} ref="oRestyLog" label="Logs OpenResty" class={logStyle}/>
     );
   }
 }
@@ -341,8 +341,7 @@ class RMQLog extends Component {
   render() {
     const {hidden} = this.props;
     return (
-      <log hidden={hidden} ref="rmqLog" label="Logs RabbitMQ" class={logStyle}
-           width="70%" height="95%"/>
+      <log hidden={hidden} ref="rmqLog" label="Logs RabbitMQ" class={logStyle}/>
     );
   }
 }
@@ -368,8 +367,7 @@ class PgRESTLog extends Component {
   render() {
     const {hidden} = this.props;
     return (
-      <log hidden={hidden} ref="pgRestLog" label="Logs PostgREST" class={logStyle}
-           width="70%" height="95%"/>
+      <log hidden={hidden} ref="pgRestLog" label="Logs PostgREST" class={logStyle}/>
     );
   }
 }
@@ -424,12 +422,15 @@ class WatcherLog extends Component {
       },
       border: {
         type: 'line'
-      }
+      },
+      left: "70%",
+      width: "30%",
+      height: "95%"
     };
     const {hidden} = this.props;
     return (
       <log hidden={hidden} ref="watcherLog" label="Watcher" class={watcherLogStyle}
-           left="70%" width="30%" height="95%"/>
+           />
     );
   }
 }
