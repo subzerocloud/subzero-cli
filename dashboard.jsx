@@ -165,13 +165,47 @@ class Dashboard extends Component {
   render() {
     const { hidden, restarted, stoppedWatcher, startedWatcher, hiddenHelp } = this.state;
     const { restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB, hideHelp } = this;
+    const listStyle = {
+      mouse: true,
+      keys: true,
+      vi: true,
+      left: 0,
+      top: 0,
+      padding :{
+        top: 1
+      },
+      bottom: 0,
+      width: "9%",
+      align: 'center',
+      tags: true,
+      items: ['PostgreSQL', 'PostgREST', 'OpenResty', 'RabbitMQ', 'Watcher /'],
+      style: {
+        selected:{
+          fg: "green"
+        },
+        item: {
+          fg: "grey",
+          hover:{
+            fg: "light-blue"
+          }
+        }
+      }
+    };
+    const lineStyle = {
+      orientation: 'vertical',
+      left: "9%",
+      top: 0,
+      bottom: 0,
+      fg: "blue"
+    };
     return (
       <element keyable={true} ref="mainEl">
+        <list class={listStyle}/>
+        <line class={lineStyle}/>
         <PgLog restart={restarted[0]} hidden={hidden[0]}/>
         <ORestyLog restart={restarted[1]} hidden={hidden[1]}/>
         <PgRESTLog restart={restarted[2]} hidden={hidden[2]}/>
         <RMQLog restart={restarted[3]} hidden={hidden[3]}/>
-        <WatcherLog started={startedWatcher} stopped={stoppedWatcher}/>
         <Options restartContainer={restartContainer} restartAllContainers={restartAllContainers} 
           stopWatcher={stopWatcher} startWatcher={startWatcher} resetDB={resetDB} hideHelp={hideHelp}/>
         <Help hidden={hiddenHelp}/>
@@ -180,75 +214,10 @@ class Dashboard extends Component {
   }
 }
 
-class Options extends Component {
-  render(){
-    const buttonStyle = {
-      border: {
-        type: 'line'
-      },
-      style: {
-        border: {
-          fg: 'blue'
-        }
-      }
-    };
-    const {restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB, hideHelp} = this.props;
-    return (
-      <layout top="95%" width="100%" height="5%">
-        <button class={buttonStyle} content="1: Purge log"/>
-        <button clickable={true} onClick={restartContainer} class={buttonStyle} content="2: Restart this container"/>
-        <button clickable={true} onClick={restartAllContainers} class={buttonStyle} content="3: Restart all containers"/>
-        <button clickable={true} onClick={stopWatcher} class={buttonStyle} content="4: Stop Watcher"/>
-        <button clickable={true} onClick={startWatcher} class={buttonStyle} content="5: Start Watcher"/>
-        <button clickable={true} onClick={resetDB} class={buttonStyle} content="6: Reset DB"/>
-        <button clickable={true} onClick={hideHelp} class={buttonStyle} content="?: Help"/>
-      </layout>
-    );
-  }
-}
-
-const content = [
-  "{center}{bold}keybindings{/bold}{/center}",
-  "",
-  "{cyan-fg}    left, right{/}  rotate through logs",
-  "{cyan-fg}           h, ?{/}  toggle help",
-  "{cyan-fg} esc, ctrl-c, q{/}  quit",
-  "",
-  "{right}{gray-fg}version: " + version + "{/}"
-].join("\n");
-
-class Help extends Component {
-  render(){
-    const style = {
-      position: {
-        top: "center",
-        left: "center",
-        width: 64,
-        height: 10
-      },
-      border: "line",
-      padding: {
-        left: 1,
-        right: 1
-      },
-      style: {
-        border: {
-          fg: "white"
-        }
-      },
-      tags: true,
-      content: content
-    }
-    const {hidden} = this.props;
-    return (
-      <box class={style} hidden={hidden}/>
-    );
-  }
-}
-
 const logStyle = {
 	keys: true,
 	vi: true,
+  left: "10%",
 	mouse: true,
   scrollback: 95,
 	scrollbar: {
@@ -261,8 +230,8 @@ const logStyle = {
 		type: 'line',
     fg: 'green'
 	},
-  width: "70%",
-  height: "95%"
+  width: "90%",
+  height: "97%"
 };
 
 class PgLog extends Component {
@@ -287,7 +256,7 @@ class PgLog extends Component {
   render(){
     const {hidden} = this.props;
     return (
-      <log onRestart={this.handleRestart} hidden={hidden} ref="pgLog" label="Logs PostgreSQL" class={logStyle}/>
+      <log onRestart={this.handleRestart} hidden={hidden} ref="pgLog" label=" Logs " class={logStyle}/>
     );
   }
 }
@@ -431,6 +400,79 @@ class WatcherLog extends Component {
     return (
       <log hidden={hidden} ref="watcherLog" label="Watcher" class={watcherLogStyle}
            />
+    );
+  }
+}
+
+class Options extends Component {
+  render(){
+    const buttonStyle = {
+      //border: {
+        //type: 'line'
+      //},
+      style: {
+        border: {
+          fg: 'blue'
+        }
+      },
+      tags: true,
+      padding: {
+        top: 0,
+        bottom: 0,
+        left: 2,
+        right: 2
+      }
+    };
+    const {restartContainer, restartAllContainers, stopWatcher, startWatcher, resetDB, hideHelp} = this.props;
+    return (
+      <layout left="10%" top="97%" width="90%" height="3%">
+        <button class={buttonStyle} content="{blue-fg}1:{/blue-fg} Purge log"/>
+        <button clickable={true} onClick={restartContainer} class={buttonStyle} content="{blue-fg}2:{/blue-fg} Restart this container"/>
+        <button clickable={true} onClick={restartAllContainers} class={buttonStyle} content="{blue-fg}3:{/blue-fg} Restart all containers"/>
+        <button clickable={true} onClick={stopWatcher} class={buttonStyle} content="{blue-fg}4:{/blue-fg} Stop Watcher"/>
+        <button clickable={true} onClick={startWatcher} class={buttonStyle} content="{blue-fg}5:{/blue-fg} Start Watcher"/>
+        <button clickable={true} onClick={resetDB} class={buttonStyle} content="{blue-fg}6:{/blue-fg} Reset DB"/>
+        <button clickable={true} onClick={hideHelp} class={buttonStyle} content="{blue-fg}?:{/blue-fg} Help"/>
+      </layout>
+    );
+  }
+}
+
+const content = [
+  "{center}{bold}keybindings{/bold}{/center}",
+  "",
+  "{cyan-fg}    left, right{/}  rotate through logs",
+  "{cyan-fg}           h, ?{/}  toggle help",
+  "{cyan-fg} esc, ctrl-c, q{/}  quit",
+  "",
+  "{right}{gray-fg}version: " + version + "{/}"
+].join("\n");
+
+class Help extends Component {
+  render(){
+    const style = {
+      position: {
+        top: "center",
+        left: "center",
+        width: 64,
+        height: 10
+      },
+      border: "line",
+      padding: {
+        left: 1,
+        right: 1
+      },
+      style: {
+        border: {
+          fg: "white"
+        }
+      },
+      tags: true,
+      content: content
+    }
+    const {hidden} = this.props;
+    return (
+      <box class={style} hidden={hidden}/>
     );
   }
 }
