@@ -23,3 +23,15 @@ To rebuild and recreate the command do:
 ```bash
   npm run build && npm unlink sub0_devtools & npm link
 ```
+
+To create a distributable binary download the module:
+
+```bash
+  npm install -g pkg
+```
+
+And then do:
+
+```bash
+  pkg package.json
+```
