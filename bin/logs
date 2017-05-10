@@ -1,6 +1,0 @@
-#!/bin/bash
-
-SYSTEM=$1
-CMD="follow_${SYSTEM}_logs.sh"
-
-$CMD $2 $3 $4

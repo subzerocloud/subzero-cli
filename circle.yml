@@ -1,20 +1,24 @@
-machine:
-  services:
-    - docker
-
 dependencies:
-  pre:
-    - $( aws ecr get-login --region $AWS_DEFAULT_REGION )
-    - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+  override:
+    - npm install -g pkg
+    - go get -u github.com/tcnksm/ghr
+compile:
+  override:
+    - npm install
+    - npm run build
 
 test:
   override:
-    - docker build -t $AWS_REPO/devtools:latest .
+    - echo "test"
 
 deployment:
-    prod:
-      branch: master
-      commands:
-        - docker push $AWS_REPO/devtools:latest
-        - docker tag $AWS_REPO/devtools:latest sub0/devtools:latest
-        - docker push sub0/devtools:latest
+  release:
+    tag: /v[0-9]+(\.[0-9]+)*/
+    owner: subzerocloud
+    branch: master
+    commands:
+      - pkg package.json --out-dir ./bindist/
+      - ls -al ./dist
+      - export VERSION_TAG=`git describe --tags`
+      - echo $VERSION_TAG
+      #— ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` bindist/
