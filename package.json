@@ -7,7 +7,7 @@
   "version": "0.0.1",
   "scripts": {
     "start": "babel-node dashboard.jsx",
-    "build": "babel dashboard.jsx --out-dir ./dist"
+    "build": "babel *.jsx --out-dir ./dist"
   },
   "dependencies": {
     "blessed": "0.1.81",
