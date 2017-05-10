@@ -1,0 +1,24 @@
+dependencies:
+  override:
+    - npm install -g pkg
+    - go get -u github.com/tcnksm/ghr
+compile:
+  override:
+    - npm install
+    - npm run build
+
+test:
+  override:
+    - echo "test"
+
+deployment:
+  release:
+    tag: /v[0-9]+(\.[0-9]+)*/
+    owner: subzerocloud
+    branch: master
+    commands:
+      - pkg package.json --out-dir ./bindist/
+      - ls -al ./dist
+      - export VERSION_TAG=`git describe --tags`
+      - echo $VERSION_TAG
+      #— ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` bindist/
