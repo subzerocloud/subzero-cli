@@ -1,8 +1,7 @@
 {
-  "name": "devtools",
+  "name": "subzero_devtools",
   "description": "A TUI for subZero",
-  "main": "./dist/dashboard.js",
-  "bin": "./dist/dashboard.js",
+  "bin":  "./dist/dashboard.js",
   "preferGlobal": true,
   "version": "0.0.1",
   "scripts": {

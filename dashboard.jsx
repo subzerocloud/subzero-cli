@@ -3,6 +3,7 @@
 import fs from 'fs';
 
 import proc from 'child_process';
+import {dirname,resolve} from 'path';
 import {highlight} from 'cli-highlight';
 import {StringDecoder} from 'string_decoder'; 
 import {config} from 'dotenv';
@@ -30,6 +31,7 @@ const SUPER_USER_PASSWORD = process.env.SUPER_USER_PASSWORD;
 const DB_HOST = process.env.DB_HOST;
 const DB_NAME = process.env.DB_NAME;
 const DB_DIR = "docker-entrypoint-initdb.d/";
+const APP_DIR = dirname(resolve(cfg.path));
 const TITLES = { 
   openresty: 'OpenResty',
   postgrest: 'PostgREST',
@@ -96,14 +98,21 @@ class Dashboard extends Component {
     logger.log('Stopping watcher');
   }
   startWatcher = () => {
-    const {activeContainer} = this.state;
-    const logger = this.refs['log_'+activeContainer];
-    const spinner = this.refs['watcherSpinner'];
+    const onReady = () => {
+      const spinner = this.refs['watcherSpinner'];
+      const logger = this.refs['log_'+this.state.activeContainer];
+      spinner.stop();
+      logger.log('Ready ---------------------------------------');
+    }
     this.setState({watcherRunning:true});
     if(this.watcher){ this.watcher.close(); }
-    this.watcher = chokidar.watch(['**/*.sql', '**/*.lua', '**/*.conf'], { ignored : '**/tests/**'})
+    this.watcher = chokidar.watch([APP_DIR +'/**/*.sql', APP_DIR + '/**/*.lua', APP_DIR +'/**/*.conf'], { ignored : APP_DIR+'/**/tests/**'})
       .on('change', path => {
-        logger.log(`${path} changed`);
+        const spinner = this.refs['watcherSpinner'];
+        const logger = this.refs['log_'+this.state.activeContainer];
+        const relPath = path.replace(APP_DIR, '.');
+        logger.log(`${relPath} changed`);
+        logger.log('Starting code reload ------------------------');
         spinner.start()
         if(path.endsWith('.sql')){
           //try to optimistically execute just the changed file
@@ -112,18 +121,22 @@ class Dashboard extends Component {
           ])
           .on('close', (code) => {
             if(code != 0){
-              this.resetDb().on('close', (code) => spinner.stop());
+              this.resetDb().on('close', onReady);
             }
             else {
               this.sendHUP(containers['postgrest'].name);
-              this.sendHUP(containers['openresty'].name).on('close', (code) => spinner.stop());; 
+              this.sendHUP(containers['openresty'].name).on('close', onReady);
             }
           });
         }else{
-          this.sendHUP(containers['openresty'].name).on('close', (code) => spinner.stop());;
+          this.sendHUP(containers['openresty'].name).on('close', onReady);
         }
       })
-      .on('ready', () => logger.log('Watching **/*.sql, **/*.lua, **/*.conf for changes.'));
+      .on('ready', () => {
+        const logger = this.refs['log_'+this.state.activeContainer];
+        logger.log('Watching **/*.sql, **/*.lua, **/*.conf for changes.');
+        logger.log('in ' + APP_DIR);
+      });
   }
   startLogTail = (key, timestamp) => {
     const {containers} = this.state;
