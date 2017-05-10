@@ -1,29 +1,33 @@
-import {Component} from 'react';
+import React, {Component} from 'react';
 import blessed from 'blessed';
 
 class Spinner extends Component {
   constructor(props) {
     super(props);
+    this.chars = this.props.chars || "|/-\\";
+    this.delay = this.props.delay || 60;
     this.state = {
-      text : '|',
-		};
+      current : null
+    };
   }
-  componentDidMount(){
-    setInterval(this.spin, 200);
+  // componentDidMount(){
+  //   this.start();
+  // }
+  start = () => {
+    this.setState({current: 0});
+    this.interval = setInterval(this.spin, this.delay); 
+  }
+  stop = () => {
+    clearInterval(this.interval);
+    this.setState({current: null});
   }
   spin = () => {
-    let {text} = this.state;
-    let newText;
-    switch(text){
-      case '|' : newText = '/';  break;
-      case '/' : newText = '-';  break;
-      case '-' : newText = '\\'; break;
-      case '\\': newText = '|';  break;
-    }
-    this.setState({text: newText});
+    let {current} = this.state;
+    this.setState({current: ++current % this.chars.length});
   }
   render(){
-    const {text} = this.state;
+    const {current} = this.state
+    const text = current !== null ? this.chars[this.state.current]:'';
     return (
       <text {...this.props}>
         {text}

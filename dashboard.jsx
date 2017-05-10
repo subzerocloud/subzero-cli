@@ -7,17 +7,24 @@ import {highlight} from 'cli-highlight';
 import {StringDecoder} from 'string_decoder'; 
 import {config} from 'dotenv';
 import chokidar from 'chokidar';
+import Spinner from './spinner.js';
 
 import React, {Component} from 'react';
 import blessed from 'blessed';
 import {render} from 'react-blessed';
 
 import {version} from '../package.json';
+let cfg = {
+  path: typeof(process.argv[2]) == 'string' ? process.argv[2] : '.env'
+}
 
-config();//.env file vars added to process.env 
+if (!fs.existsSync(cfg.path) || !fs.statSync(cfg.path).isFile()) {
+  console.log("\x1b[31mError:\x1b[0m .env file '"+cfg.path+"' does not exist");
+  process.exit(0);
+}
+config( cfg );//.env file vars added to process.env 
 
 const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
-// const COMPOSE_PROJECT_NAME='postgreststarterkit';
 const SUPER_USER = process.env.SUPER_USER;
 const SUPER_USER_PASSWORD = process.env.SUPER_USER_PASSWORD;
 const DB_HOST = process.env.DB_HOST;
@@ -57,7 +64,8 @@ class Dashboard extends Component {
       containers: containers,
       containerOrder: Object.keys(containers),
       activeContainer: Object.keys(containers)[0],
-      showHelp: false
+      showHelp: false,
+      watcherRunning: true
     }
   }
   componentDidMount(){
@@ -78,14 +86,25 @@ class Dashboard extends Component {
   componentWillUnmount() {
     const {containers} = this.state;
     Object.keys(containers).map(c => c.logProc.kill());
-    this.watcher.kill();
+    if(this.watcher){ this.watcher.close();}
+  }
+  stopWatcher = () => {
+    const {activeContainer} = this.state;
+    const logger = this.refs['log_'+activeContainer];
+    if(this.watcher){ this.watcher.close(); this.watcher = null;}
+    this.setState({watcherRunning:false});
+    logger.log('Stopping watcher');
   }
   startWatcher = () => {
     const {activeContainer} = this.state;
     const logger = this.refs['log_'+activeContainer];
+    const spinner = this.refs['watcherSpinner'];
+    this.setState({watcherRunning:true});
+    if(this.watcher){ this.watcher.close(); }
     this.watcher = chokidar.watch(['**/*.sql', '**/*.lua', '**/*.conf'], { ignored : '**/tests/**'})
       .on('change', path => {
         logger.log(`${path} changed`);
+        spinner.start()
         if(path.endsWith('.sql')){
           //try to optimistically execute just the changed file
           this.runSql( [DB_NAME,
@@ -93,15 +112,15 @@ class Dashboard extends Component {
           ])
           .on('close', (code) => {
             if(code != 0){
-              this.resetDb();
+              this.resetDb().on('close', (code) => spinner.stop());
             }
             else {
               this.sendHUP(containers['postgrest'].name);
-              this.sendHUP(containers['openresty'].name);  
+              this.sendHUP(containers['openresty'].name).on('close', (code) => spinner.stop());; 
             }
           });
         }else{
-          this.sendHUP(containers['openresty'].name);
+          this.sendHUP(containers['openresty'].name).on('close', (code) => spinner.stop());;
         }
       })
       .on('ready', () => logger.log('Watching **/*.sql, **/*.lua, **/*.conf for changes.'));
@@ -112,7 +131,7 @@ class Dashboard extends Component {
     const printer = key == 'db' ? printSQL : printLog;
     timestamp = timestamp ? timestamp : 0;
     if (containers[key].logProc) { containers[key].logProc.kill() }
-    containers[key].logProc = proc.spawn('docker',['logs', '--since', timestamp, '-f', containers[key].name]);
+    containers[key].logProc = proc.spawn('docker',['logs', '--tail', 500, '--since', timestamp, '-f', containers[key].name]);
     containers[key].logProc.stdout.on('data', data => logger.log(printer(data)));
     containers[key].logProc.stderr.on('data', data => logger.log(printer(data)));
   }
@@ -141,7 +160,7 @@ class Dashboard extends Component {
   sendHUP = (container) => proc.spawn('docker',['kill', '-s', 'HUP', container]);
   resetDb = () => {
     const {containers} = this.state;
-    this.runSql( ['postgres',
+    return this.runSql( ['postgres',
       '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}';`,
       '-c', `DROP DATABASE if exists ${DB_NAME};`,
       '-c', `CREATE DATABASE ${DB_NAME};`,
@@ -151,8 +170,7 @@ class Dashboard extends Component {
     .on('close', (code) => {
         this.sendHUP(containers['postgrest'].name);
         this.sendHUP(containers['openresty'].name);
-    });
-    
+    });    
   }
   clearLog = (key) => {
     const containerName = containers[key].name;
@@ -160,7 +178,7 @@ class Dashboard extends Component {
     fs.truncateSync(logFile, 0)
   }
   handleKeyPress = (key) => {
-    const {activeContainer, containerOrder, containers} = this.state;
+    const {activeContainer, containerOrder, containers, watcherRunning} = this.state;
           
     switch(key) {
         case 'left':
@@ -171,9 +189,11 @@ class Dashboard extends Component {
           if(key == "right") { idx = (idx + 1 == total)?0:(idx + 1); }
           this.selectContainer(idx);
           break;
-        // case 'c':// 'Clear log': {keys:['c']},
-        //   this.clearLog(activeContainer);
-        //   break;
+        case 'c':// 'Clear log': {keys:['c']},
+          //this.clearLog(activeContainer);
+          const logger = this.refs['log_'+activeContainer];
+          logger.setContent('');
+          break;
         case 't':// 'Restart this container': {keys:['t']}, this.restartContainer();
           this.restartContainer(activeContainer);
           break;
@@ -181,6 +201,7 @@ class Dashboard extends Component {
           Object.keys(containers).map(k => this.restartContainer(k));
           break;
         case 'w':// 'Toggle Watcher'
+          watcherRunning ? this.stopWatcher() : this.startWatcher();
           break;
         case 'r':// 'Reset DB'
           this.resetDb();
@@ -252,19 +273,22 @@ class Dashboard extends Component {
     }
     return (
       <element keyable={true} ref="dashboard">
+        
         <listbar ref="topMenu"  top={0} items={containerTitles} class={topMenuStyle} />
         {containerOrder.map( key =>
-          <log key={key} hidden={key != activeContainer} ref={'log_' + key} top={1} label={containers[key].title} class={logWindowStyle} />
+          <log key={key} hidden={key != activeContainer} ref={'log_' + key} top={1} label="Logs" class={logWindowStyle} />
         )}
-        <listbar ref="bottomMenu" bottom={0} height={1} autoCommandKeys={false} commands={{
-          //'Clear log': {keys:['c']},
+        <listbar ref="bottomMenu" bottom={0} height={1} width="100%-2" left={2} autoCommandKeys={false} commands={{
+          'Clear log': {keys:['c']},
           'Restart this container': {keys:['t']},
           'Restart all containers': {keys:['a']},
-          'Toggle Watcher': {keys:['w']},
+          'Toggle Watcher' : {keys:['w']},
           'Reset DB': {keys:['r']},
           'Help': {keys:['h']},
         }} />
         <box class={helpWindowOptions} hidden={!showHelp}/>
+      
+        <Spinner ref="watcherSpinner" bottom={0} left={0} />
       </element>
     );
   }

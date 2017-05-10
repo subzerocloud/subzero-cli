@@ -1,6 +1,6 @@
 {
-  "name": "sub0_devtools",
-  "description": "A TUI for sub0",
+  "name": "devtools",
+  "description": "A TUI for subZero",
   "main": "./dist/dashboard.js",
   "bin": "./dist/dashboard.js",
   "preferGlobal": true,
