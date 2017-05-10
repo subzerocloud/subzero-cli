@@ -3,7 +3,7 @@
   "description": "A TUI for subZero",
   "bin":  "./dist/dashboard.js",
   "preferGlobal": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "scripts": {
     "start": "babel-node dashboard.jsx",
     "build": "babel *.jsx --out-dir ./dist"
