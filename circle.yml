@@ -22,7 +22,9 @@ deployment:
     branch: master
     commands:
       - pkg package.json --out-dir ./bindist/
-      - ls -al ./dist
       - export VERSION_TAG=`git describe --tags`
-      - echo $VERSION_TAG
-      #— ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` bindist/
+      - mv ./bindist/subzero_devtools-linux ./bindist/subzero_devtools-linux-$VERSION_TAG
+      - mv ./bindist/subzero_devtools-macos ./bindist/subzero_devtools-macos-$VERSION_TAG
+      - mv ./bindist/subzero_devtools-win.exe ./bindist/subzero_devtools-win-$VERSION_TAG.exe
+      - gzip ./bindist/*
+      - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` bindist/
