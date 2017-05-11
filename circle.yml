@@ -19,7 +19,6 @@ deployment:
   release:
     tag: /v[0-9]+(\.[0-9]+)*/
     owner: subzerocloud
-    branch: master
     commands:
       - pkg package.json --out-dir ./bindist/
       - export VERSION_TAG=`git describe --tags`
