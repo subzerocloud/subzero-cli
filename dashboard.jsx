@@ -250,6 +250,8 @@ class Dashboard extends Component {
       },
       width: "100%",
       height: "100%-2",
+      keys: true,
+      vi: true,
       mouse: true,
       scrollback: 95,
       scrollbar: {
