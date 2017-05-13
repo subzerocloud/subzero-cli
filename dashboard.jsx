@@ -291,7 +291,8 @@ class Dashboard extends Component {
         
         <listbar ref="topMenu"  top={0} items={containerTitles} class={topMenuStyle} />
         {containerOrder.map( key =>
-          <log key={key} hidden={key != activeContainer} ref={'log_' + key} top={1} label="Logs" class={logWindowStyle} />
+          <log key={key} hidden={key != activeContainer} focused={key == activeContainer} 
+            ref={'log_' + key} top={1} label="Logs" class={logWindowStyle} />
         )}
         <listbar ref="bottomMenu" bottom={0} height={1} width="100%-2" left={2} autoCommandKeys={false} commands={{
           'Clear log': {keys:['c']},
