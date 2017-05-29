@@ -117,7 +117,7 @@ class Dashboard extends Component {
         if(path.endsWith('.sql')){
           //try to optimistically execute just the changed file
           this.runSql( [DB_NAME,
-            '-f', path.replace('./sql/', DB_DIR)
+            '-f', relPath.replace('./sql/', DB_DIR)
           ])
           .on('close', (code) => {
             if(code != 0){
