@@ -30,7 +30,7 @@ const SUPER_USER = process.env.SUPER_USER;
 const SUPER_USER_PASSWORD = process.env.SUPER_USER_PASSWORD;
 const DB_HOST = process.env.DB_HOST;
 const DB_NAME = process.env.DB_NAME;
-const DB_DIR = "docker-entrypoint-initdb.d/";
+const DB_DIR = "/docker-entrypoint-initdb.d/";
 const APP_DIR = dirname(resolve(cfg.path));
 const TITLES = { 
   openresty: 'OpenResty',
@@ -117,7 +117,7 @@ class Dashboard extends Component {
         if(path.endsWith('.sql')){
           //try to optimistically execute just the changed file
           this.runSql( [DB_NAME,
-            '-c', `\\i ${DB_DIR}/init.sql;`
+            '-f', path.replace('./sql/', DB_DIR)
           ])
           .on('close', (code) => {
             if(code != 0){
@@ -166,9 +166,12 @@ class Dashboard extends Component {
     });
   }
   runSql = (commands) => {
-    const {containers} = this.state;
+    const {containers, activeContainer} = this.state;
     const connectParams = ['exec', containers['db'].name, 'psql', '-U', SUPER_USER]
-    return proc.spawn('docker', connectParams.concat(commands))
+    const logger = this.refs['log_'+activeContainer];
+    let psql = proc.spawn('docker', connectParams.concat(commands));
+    psql.stderr.on('data', (data) => logger.log(printLog(data)));
+    return psql;
   }
   sendHUP = (container) => proc.spawn('docker',['kill', '-s', 'HUP', container]);
   resetDb = () => {
@@ -177,12 +180,16 @@ class Dashboard extends Component {
       '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}';`,
       '-c', `DROP DATABASE if exists ${DB_NAME};`,
       '-c', `CREATE DATABASE ${DB_NAME};`,
-      '-c', `\\c ${DB_NAME}`,
-      '-c', `\\i ${DB_DIR}/init.sql;`
+      // '-c', `\\c ${DB_NAME}`,
+      // '-c', `\\i ${DB_DIR}/init.sql;`
     ])
     .on('close', (code) => {
-        this.sendHUP(containers['postgrest'].name);
-        this.sendHUP(containers['openresty'].name);
+        this.runSql( [DB_NAME,
+            '-f', DB_DIR +'init.sql'
+        ]).on('close', (code) => {
+          this.sendHUP(containers['postgrest'].name);
+          this.sendHUP(containers['openresty'].name);
+        });  
     });    
   }
   clearLog = (key) => {
