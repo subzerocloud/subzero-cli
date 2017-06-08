@@ -32,6 +32,10 @@ const DB_HOST = process.env.DB_HOST;
 const DB_NAME = process.env.DB_NAME;
 const DB_DIR = "/docker-entrypoint-initdb.d/";
 const APP_DIR = dirname(resolve(cfg.path));
+const WATCH_PATTERNS = 
+        process.env.WATCH_PATTERNS
+        ? process.env.WATCH_PATTERNS.split(',').map(p => APP_DIR + '/' + p)
+        : [APP_DIR +'/db/src/**/*.sql', APP_DIR + '/openresty/lualib/**/*.lua', APP_DIR +'/openresty/nginx/conf/**/*.conf']
 const TITLES = { 
   openresty: 'OpenResty',
   postgrest: 'PostgREST',
@@ -106,7 +110,7 @@ class Dashboard extends Component {
     }
     this.setState({watcherRunning:true});
     if(this.watcher){ this.watcher.close(); }
-    this.watcher = chokidar.watch([APP_DIR +'/**/*.sql', APP_DIR + '/**/*.lua', APP_DIR +'/**/*.conf'], { ignored : APP_DIR+'/**/tests/**'})
+    this.watcher = chokidar.watch(WATCH_PATTERNS, { ignored : APP_DIR+'/**/tests/**'})
       .on('change', path => {
         const spinner = this.refs['watcherSpinner'];
         const logger = this.refs['log_'+this.state.activeContainer];
@@ -134,7 +138,8 @@ class Dashboard extends Component {
       })
       .on('ready', () => {
         const logger = this.refs['log_'+this.state.activeContainer];
-        logger.log('Watching **/*.sql, **/*.lua, **/*.conf for changes.');
+
+        logger.log('Watching ' + WATCH_PATTERNS.map(p => p.replace(APP_DIR + '/','')).join(', ') + ' for changes.');
         logger.log('in ' + APP_DIR);
       });
   }
