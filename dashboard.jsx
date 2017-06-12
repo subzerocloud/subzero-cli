@@ -192,9 +192,11 @@ class Dashboard extends Component {
         this.runSql( [DB_NAME,
             '-f', DB_DIR +'init.sql'
         ]).on('close', (code) => {
-          this.sendHUP(containers['postgrest'].name);
-          this.sendHUP(containers['openresty'].name);
-        });  
+          if(code == 0){
+            this.sendHUP(containers['postgrest'].name);
+            this.sendHUP(containers['openresty'].name);
+          }
+        });
     });    
   }
   clearLog = (key) => {
