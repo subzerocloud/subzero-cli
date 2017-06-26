@@ -40,7 +40,8 @@ const TITLES = {
   openresty: 'OpenResty',
   postgrest: 'PostgREST',
   db: 'PostgreSQL',
-  rabbitmq: 'RabbitMQ'
+  rabbitmq: 'RabbitMQ',
+  pgamqpbridge: 'pg-amqp-bridge'
 }
 
 if(!COMPOSE_PROJECT_NAME){
@@ -51,9 +52,11 @@ if(!COMPOSE_PROJECT_NAME){
 const container_list = proc.execSync('docker ps -a -f name=${COMPOSE_PROJECT_NAME} --format "{{.Names}}"').toString('utf8').trim().split("\n");
 const containers = container_list.reduce( ( acc, containerName ) => {
   let key = containerName.replace(COMPOSE_PROJECT_NAME,'').replace('1','').replace(/_/g,'');
-  acc[key] = {
-    name: containerName,
-    title: TITLES[key]
+  if (TITLES[key]) {
+    acc[key] = {
+      name: containerName,
+      title: TITLES[key]
+    }
   }
   return acc
 }, {});
