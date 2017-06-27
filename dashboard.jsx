@@ -253,10 +253,7 @@ class Dashboard extends Component {
           fg: "green"
         },
         item: {
-          fg: "grey",
-          hover:{
-            fg: "light-blue"
-          }
+          fg: "grey"
         }
       }
     }
@@ -269,7 +266,6 @@ class Dashboard extends Component {
       height: "100%-2",
       keys: true,
       vi: true,
-      mouse: true,
       scrollback: 95,
       scrollbar: {
         ch: ' ',
