@@ -92,11 +92,6 @@ class Dashboard extends Component {
 
     this.startWatcher();
   }
-  componentWillUnmount() {
-    const {containers} = this.state;
-    Object.keys(containers).map(c => c.logProc.kill());
-    if(this.watcher){ this.watcher.close();}
-  }
   stopWatcher = () => {
     const {activeContainer} = this.state;
     const logger = this.refs['log_'+activeContainer];
@@ -209,7 +204,6 @@ class Dashboard extends Component {
   }
   handleKeyPress = (key) => {
     const {activeContainer, containerOrder, containers, watcherRunning} = this.state;
-          
     switch(key) {
         case 'left':
         case 'right':
@@ -238,6 +232,14 @@ class Dashboard extends Component {
           break;
         case 'h':// 'Help': {keys:['?']}, this.hideHelp();
           this.setState({showHelp: !this.state.showHelp})
+          break;
+        // Quit program
+        case 'q':
+        case 'escape':
+        case 'C-c':
+          Object.keys(containers).map(c => containers[c].logProc.kill());
+          if(this.watcher){ this.watcher.close();}
+          process.exit(0);
           break;
         default:
           this.selectContainer(parseInt(key, 10) - 1);
@@ -329,13 +331,4 @@ const screen = blessed.screen({
   title: 'subZero devtools'
 });
 
-screen.key(['escape', 'q', 'C-c'], (ch, key) => {
-  return process.exit(0);
-});
-
 render(<Dashboard />, screen);
-
-process.on('exit', () => {
-  //Object.keys(containers).map(c => c.logProc.kill());
-  //watcher.close();
-});
