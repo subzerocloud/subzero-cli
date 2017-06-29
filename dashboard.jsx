@@ -5,7 +5,7 @@ import fs from 'fs';
 import proc from 'child_process';
 import {dirname,resolve} from 'path';
 import {highlight} from 'cli-highlight';
-import {StringDecoder} from 'string_decoder'; 
+import {StringDecoder} from 'string_decoder';
 import {config} from 'dotenv';
 import chokidar from 'chokidar';
 import Spinner from './spinner.js';
@@ -23,20 +23,21 @@ if (!fs.existsSync(cfg.path) || !fs.statSync(cfg.path).isFile()) {
   console.log("\x1b[31mError:\x1b[0m .env file '"+cfg.path+"' does not exist");
   process.exit(0);
 }
-config( cfg );//.env file vars added to process.env 
+config( cfg );//.env file vars added to process.env
 
 const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
 const SUPER_USER = process.env.SUPER_USER;
 const SUPER_USER_PASSWORD = process.env.SUPER_USER_PASSWORD;
 const DB_HOST = process.env.DB_HOST;
 const DB_NAME = process.env.DB_NAME;
+const LOG_LENGTH = process.env.LOG_LENGTH || 1000;
 const DB_DIR = "/docker-entrypoint-initdb.d/";
 const APP_DIR = dirname(resolve(cfg.path));
-const WATCH_PATTERNS = 
+const WATCH_PATTERNS =
         process.env.WATCH_PATTERNS
         ? process.env.WATCH_PATTERNS.split(',').map(p => APP_DIR + '/' + p)
         : [APP_DIR +'/db/src/**/*.sql', APP_DIR + '/openresty/lualib/**/*.lua', APP_DIR +'/openresty/nginx/conf/**/*.conf']
-const TITLES = { 
+const TITLES = {
   openresty: 'OpenResty',
   postgrest: 'PostgREST',
   db: 'PostgreSQL',
@@ -81,7 +82,7 @@ class Dashboard extends Component {
     const {containers, activeContainer, containerOrder} = this.state;
     const refs = this.refs;
     const {topMenu, dashboard} = refs;
-    
+
     topMenu.select(containerOrder.indexOf(activeContainer));
     dashboard.on("element keypress", (el, ch, key) => this.handleKeyPress(key.full));
 
@@ -195,7 +196,7 @@ class Dashboard extends Component {
             this.sendHUP(containers['openresty'].name);
           }
         });
-    });    
+    });
   }
   clearLog = (key) => {
     const containerName = containers[key].name;
@@ -268,7 +269,7 @@ class Dashboard extends Component {
       height: "100%-2",
       keys: true,
       vi: true,
-      scrollback: 95,
+      scrollback: LOG_LENGTH,
       scrollbar: {
         ch: ' ',
         style: {
@@ -285,7 +286,7 @@ class Dashboard extends Component {
         height: 10
       },
       border: "line",
-      
+
       style: {
         border: {
           fg: "white"
@@ -303,10 +304,10 @@ class Dashboard extends Component {
     }
     return (
       <element keyable={true} ref="dashboard">
-        
+
         <listbar ref="topMenu"  top={0} items={containerTitles} class={topMenuStyle} />
         {containerOrder.map( key =>
-          <log key={key} hidden={key != activeContainer} focused={key == activeContainer} 
+          <log key={key} hidden={key != activeContainer} focused={key == activeContainer}
             ref={'log_' + key} top={1} label="Logs" class={logWindowStyle} />
         )}
         <listbar ref="bottomMenu" bottom={0} height={1} width="100%-2" left={2} autoCommandKeys={false} commands={{
@@ -318,7 +319,7 @@ class Dashboard extends Component {
           'Help': {keys:['h']},
         }} />
         <box class={helpWindowOptions} hidden={!showHelp}/>
-      
+
         <Spinner ref="watcherSpinner" bottom={0} left={0} />
       </element>
     );
