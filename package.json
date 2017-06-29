@@ -9,7 +9,7 @@
     "build": "babel *.jsx --out-dir ./dist"
   },
   "dependencies": {
-    "blessed": "0.1.81",
+    "blessed": "git://github.com/steve-chavez/blessed",
     "react": "0.14.7",
     "react-blessed": "0.1.8",
     "cli-highlight": "1.1.4",
