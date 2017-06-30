@@ -1,12 +1,11 @@
 {
   "name": "subzero_devtools",
   "description": "A TUI for subZero",
-  "bin":  "./dist/dashboard.js",
+  "bin":  "./dist/main.js",
   "preferGlobal": true,
-  "version": "0.0.2",
+  "version": "0.0.9",
   "scripts": {
-    "start": "babel-node dashboard.jsx",
-    "build": "babel *.jsx --out-dir ./dist"
+    "build": "babel src --out-dir dist"
   },
   "dependencies": {
     "blessed": "git://github.com/steve-chavez/blessed",
@@ -14,7 +13,8 @@
     "react-blessed": "0.1.8",
     "cli-highlight": "1.1.4",
     "chokidar": "1.6.1",
-    "dotenv": "4.0.0"
+    "dotenv": "4.0.0",
+    "commander": "2.10.0"
   },
   "devDependencies": {
     "babel-cli": "^6.6.4",
