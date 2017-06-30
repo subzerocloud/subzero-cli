@@ -10,9 +10,6 @@ class Spinner extends Component {
       current : null
     };
   }
-  // componentDidMount(){
-  //   this.start();
-  // }
   start = () => {
     this.setState({current: 0});
     this.interval = setInterval(this.spin, this.delay); 
