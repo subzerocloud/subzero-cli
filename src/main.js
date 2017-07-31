@@ -1,40 +1,32 @@
 #!/usr/bin/env node
 "use strict";
-import fs from 'fs';
-import program from 'commander';
-import {version} from '../package.json';
+
+import {program} from './program.js';
 import runDashboard from './dashboard.js';
-import { initMigrations, addMigration, deployMigrations } from './migrations.js';
+import { initMigrations, addMigration } from './migrations.js';
+import {COMPOSE_PROJECT_NAME, ENV_FILE, APP_DIR} from './env.js'
 
-program
-  .version(version)
-  .option('-e, --env <path>', 'specify the env file path')
+if(!COMPOSE_PROJECT_NAME){
+    console.log("\x1b[31mError:\x1b[0m You must set the COMPOSE_PROJECT_NAME var in the .env file");
+    process.exit(0);
+}
 
-program
-  .command('dashboard')
-  .description('Open dashboard')
-  .option('-e, --env <path>', 'specify the env file path')
-  .action(() => runDashboard(program.env));
 
-program
-  .command('init-migrations')
-  .description('Setup sqitch config for migrations')
-  .action(() => initMigrations());
-
-program
-  .command('add-migration <name>')
-  .option("-n, --note [note]", "Add sqitch migration note")
-  .description('Adds a new sqitch migration')
-  .action((name, options) => addMigration(name, options.note));
-
-program
-  .command('deploy-migrations')
-  .description('Deploy sqitch migrations to production database')
-  .action(() => deployMigrations());
-
-program.parse(process.argv);
-
-//If no command specified
-if(program.args.length == 0){
-  runDashboard(program.env);
+switch (process.env.CMD) {
+  case 'dashboard':
+    runDashboard();
+    break;
+  case 'init-migrations':
+    initMigrations();
+    process.exit(0);
+    break;
+  case 'add-migration':
+    const {name, note} = process.env.CMD_OPTIONS;
+    addMigration(name, note);
+    process.exit(0);
+    break;
+  default:
+    console.log('Unknown command ' + process.env.CMD);
+    process.exit(0);
+    break;
 }
