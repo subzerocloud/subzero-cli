@@ -37,6 +37,6 @@ export const PSQL_CMD = process.env.PSQL_CMD || 'psql';
 export const PG_DUMP_CMD = process.env.PG_DUMP_CMD || 'pg_dump'; 
 export const MIGRATIONS_DIR = `${APP_DIR}/db/migrations`;
 export const DEV_DB_URI = process.env.DEV_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@localhost:5432/${DB_NAME}`
-export const PROD_DB_URI = process.env.PROD_DB_URI;
+export const PROD_DB_URI = process.env.PROD_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@localhost:5433/${DB_NAME}`
 
 
