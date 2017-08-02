@@ -3,7 +3,7 @@
 
 import {program} from './program.js';
 import runDashboard from './dashboard.js';
-import { initMigrations, addMigration, test } from './migrations.js';
+import { initMigrations, addMigration } from './migrations.js';
 import {COMPOSE_PROJECT_NAME, ENV_FILE, APP_DIR} from './env.js'
 
 if(!COMPOSE_PROJECT_NAME){
@@ -21,13 +21,11 @@ switch (process.env.CMD) {
     process.exit(0);
     break;
   case 'add-migration':
-    const {name, note} = process.env.CMD_OPTIONS;
-    addMigration(name, note);
+    addMigration(process.env.CMD_NAME, process.env.CMD_NOTE);
     process.exit(0);
     break;
   default:
-    //console.log('Unknown command ' + process.env.CMD);
-    test()
+    console.log('Unknown command ' + process.env.CMD);
     process.exit(0);
     break;
 }

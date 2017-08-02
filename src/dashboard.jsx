@@ -87,6 +87,7 @@ class Dashboard extends Component {
     if(this.watcher){ this.watcher.close(); }
     this.watcher = chokidar.watch(WATCH_PATTERNS, { ignored : APP_DIR+'/**/tests/**'})
       .on('change', path => {
+        const {containers} = this.state;
         const spinner = this.refs['watcherSpinner'];
         const logger = this.refs['log_'+this.state.activeContainer];
         const relPath = path.replace(APP_DIR, '.');
@@ -157,7 +158,7 @@ class Dashboard extends Component {
   runSql = (commands) => {
     const {activeContainer} = this.state;
     const logger = this.refs['log_'+activeContainer];
-    const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR]
+    const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR, '--set', 'ON_ERROR_STOP=1']
     var env = Object.create( process.env );
     env.PGPASSWORD = SUPER_USER_PASSWORD;
     let psql = proc.spawn(PSQL_CMD, connectParams.concat(commands), { env: env })

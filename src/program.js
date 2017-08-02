@@ -23,10 +23,8 @@ program
   .description('Adds a new sqitch migration')
   .action((name, options) => {
       process.env.CMD = 'add-migration';
-      process.env.CMD_OPTIONS = {
-          name: name,
-          note: options.note
-      }
+      process.env.CMD_NAME = name;
+      process.env.CMD_NOTE = options.note;
   });
   //.action((name, options) => addMigration(name, options.note));
 

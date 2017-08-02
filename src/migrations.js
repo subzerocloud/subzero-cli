@@ -41,9 +41,10 @@ const initMigrations = () => {
   apgdiffToFile(`${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`,
                 `${TMP_DIR}/prod-${INITIAL_FILE_NAME}.sql`,
                 `${MIGRATIONS_DIR}/revert/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
-  apgdiffToFile(`${TMP_DIR}/prod-${INITIAL_FILE_NAME}.sql`,
-                `${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`,
-                `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
+  runCmd('cp', [`${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`]);
+  // apgdiffToFile(`${TMP_DIR}/prod-${INITIAL_FILE_NAME}.sql`,
+  //               `${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`,
+  //               `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
 
   incrementMigrationNumber();
   rimraf.sync(TMP_DIR);
@@ -65,7 +66,10 @@ const addMigration = (name, note) => {
   if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
   dumpSchema(DEV_DB_URI, `${TMP_DIR}/dev-${name}.sql`);
+
+  const containerName = getTempPostgres(`${MIGRATIONS_DIR}/deploy`);
   dumpSchema(PROD_DB_URI, `${TMP_DIR}/prod-${name}.sql`);
+  stopContainer(containerName);
 
   addSqitchMigration(`${migrationNumber}-${name}`, note);
 
@@ -89,12 +93,6 @@ const runCmd = (cmd, params, options) => {
 
 }
 
-const test = () => {
-  console.log('starting')
-  const containerName = getTempPostgres(`${APP_DIR}/db/src`);
-  stopContainer(containerName);
-  console.log('after')
-}
 const stopContainer = (name) => {
   runCmd("docker", [ "stop", name ]);
   runCmd("docker", [ "rm", name ]);
@@ -109,24 +107,26 @@ const getTempPostgres = (sqlDir) => {
     "-e", `POSTGRES_DB=${DB_NAME}`, 
     "-e", `POSTGRES_USER=${SUPER_USER}`, 
     "-e", `POSTGRES_PASSWORD=${SUPER_USER_PASSWORD}`,
-    
-    "-e", `DB_NAME=${DB_NAME}`,
-    "-e", `DB_USER=authenticator`,
-    "-e", `DB_PASS=authenticatorpass`,
-    "-e", `DB_ANON_ROLE=anonymous`,
-    "-e", `DEVELOPMENT=0`,
-    "-e", `JWT_SECRET=secret`,
-
     "-v", `${sqlDir}:/docker-entrypoint-initdb.d`,
     "postgres"
   ]);
 
   console.log('Waiting for it to load')
-  let finishedLoading = false
+  let finishedLoading = false;
+  let timestamp = 0;
+  let iterations = 0;
+  const maxIterations = 60;
   while( !finishedLoading ){
-    let p = proc.spawnSync('docker', ['logs', '--tail', '20', name ]);
+    iterations = iterations + 1;
+    if( iterations > maxIterations ){
+      console.log('Giving up on waiting for db');
+      process.exit(-1);
+    }
+    let p = proc.spawnSync('docker', ['logs', '--since', timestamp, name ]);
+    timestamp = Math.floor(new Date() / 1000);
     p.output.forEach(v => {
       if( v ){
+        console.log(v.toString())
         if( v.toString().indexOf('PostgreSQL init process complete; ready for start up.') !== -1 ){
           finishedLoading = true;
         }
@@ -151,4 +151,4 @@ const apgdiffToFile = (file1, file2, destFile) => {
 
 //const surroundWithBeginCommit = str => "BEGIN;\n" + str + "\nCOMMIT;"
 
-export { initMigrations, addMigration, test };
+export { initMigrations, addMigration };
