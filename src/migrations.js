@@ -15,10 +15,11 @@ import {
     APGDIFF_JAR_PATH,
     SQITCH_CMD,
     PG_DUMP_CMD,
+    PG_DUMPALL_CMD,
     MIGRATIONS_DIR,
     DEV_DB_URI,
-    PROD_DB_URI
-
+    PROD_DB_URI,
+    IGNORE_ROLES
 } from './env.js';
 
 const TMP_DIR = `${MIGRATIONS_DIR}/tmp`;
@@ -140,7 +141,21 @@ const getTempPostgres = (sqlDir) => {
 }
 const initSqitch = () => runCmd(SQITCH_CMD, ["init", DB_NAME, "--engine", "pg"], {cwd: MIGRATIONS_DIR})
 const addSqitchMigration = (name, note) => runCmd(SQITCH_CMD, ["add", name, "-n", note || `Add ${name} migration`], {cwd: MIGRATIONS_DIR})
-const dumpSchema = (DB_URI, file) => runCmd(PG_DUMP_CMD, [DB_URI, '-f', file, '--schema-only', '--no-owner', '--no-privileges'])
+const dumpSchema = (DB_URI, file) => {
+  runCmd(PG_DUMPALL_CMD, ['-f', `${file}.roles`, '--roles-only', '-d', DB_URI]);
+  runCmd(PG_DUMP_CMD, [DB_URI, '-f', `${file}.schema`, '--schema-only', '--no-owner', '--no-privileges']);
+  let data = [
+		fs.readFileSync(`${file}.roles`, 'utf-8')
+      .split("\n")
+      .filter(ln => IGNORE_ROLES.map(r => ln.indexOf('ROLE '+r)).every(p => p == -1) ) //filter out line referring to ignored roles
+      .map(ln => ln.replace(` GRANTED BY ${SUPER_USER}`, '')) //remove unwanted string
+      .join("\n"),
+    fs.readFileSync(`${file}.schema`, 'utf-8')
+  ];
+  fs.writeFileSync(file, data.join("\n"), 'utf-8');
+  fs.unlinkSync(`${file}.roles`);
+  fs.unlinkSync(`${file}.schema`);
+}
 const apgdiffToFile = (file1, file2, destFile) => {
   let p = proc.spawnSync('java', ['-jar', APGDIFF_JAR_PATH, '--add-transaction', file1, file2]);
   if(p.stdout.toString())
