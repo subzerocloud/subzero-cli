@@ -9,31 +9,23 @@ program
   .command('dashboard')
   .description('Open dashboard')
   .action(() => process.env.CMD = 'dashboard');
-  //.action(() => runDashboard());
-
+  
 program
   .command('init-migrations')
   .description('Setup sqitch config for migrations')
   .action(() => process.env.CMD = 'init-migrations');
-  //.action(() => initMigrations());
 
 program
   .command('add-migration <name>')
   .option("-n, --note [note]", "Add sqitch migration note")
+  .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
   .description('Adds a new sqitch migration')
   .action((name, options) => {
       process.env.CMD = 'add-migration';
       process.env.CMD_NAME = name;
       process.env.CMD_NOTE = options.note;
+      process.env.CMD_DIFF = options.diff;
   });
-  //.action((name, options) => addMigration(name, options.note));
 
 program.parse(process.argv);
-
-//If no command specified
-if(program.args.length == 0){
-  process.env.CMD = 'dashboard'
-}
-
-
 export {program};

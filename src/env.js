@@ -23,6 +23,7 @@ export const ENV_FILE = process.env.ENV_FILE;
 export const SUPER_USER = process.env.SUPER_USER;
 export const SUPER_USER_PASSWORD = process.env.SUPER_USER_PASSWORD;
 export const DB_USER = process.env.DB_USER;
+export const DB_PASS = process.env.DB_PASS;
 export const DB_HOST = process.env.DB_HOST;
 export const DB_NAME = process.env.DB_NAME;
 export const LOG_LENGTH = process.env.LOG_LENGTH || 1000;

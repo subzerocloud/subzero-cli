@@ -21,11 +21,12 @@ switch (process.env.CMD) {
     process.exit(0);
     break;
   case 'add-migration':
-    addMigration(process.env.CMD_NAME, process.env.CMD_NOTE);
+    addMigration(process.env.CMD_NAME, process.env.CMD_NOTE, process.env.CMD_DIFF);
     process.exit(0);
     break;
   default:
-    console.log('Unknown command ' + process.env.CMD);
+    console.log('Unknown command');
+    program.help()
     process.exit(0);
     break;
 }

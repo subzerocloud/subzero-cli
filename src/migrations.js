@@ -11,6 +11,8 @@ import {
     SUPER_USER_PASSWORD,
     DB_HOST,
     DB_NAME,
+    DB_USER,
+    DB_PASS,
     PROD_PG_URI,
     APGDIFF_JAR_PATH,
     SQITCH_CMD,
@@ -30,7 +32,7 @@ const MIGRATION_NUMBER_FILE = `${MIGRATIONS_DIR}/.migration_number`;
 const initMigrations = () => {
   if (!fs.existsSync(MIGRATIONS_DIR)) fs.mkdirSync(MIGRATIONS_DIR);
   if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
-  fs.writeFileSync(MIGRATION_NUMBER_FILE, '0');
+  fs.writeFileSync(MIGRATION_NUMBER_FILE, '1');
   const migrationNumber = padNumber(getMigrationNumber(), 10);
   initSqitch();
 
@@ -57,37 +59,45 @@ const padNumber = (n, len) => {
 }
 const getMigrationNumber = () => parseInt(fs.readFileSync(MIGRATION_NUMBER_FILE))
 const incrementMigrationNumber = () => fs.writeFileSync(MIGRATION_NUMBER_FILE, (getMigrationNumber() + 1).toString());
-const addMigration = (name, note) => {
+const addMigration = (name, note, diff) => {
 
   if (!fs.existsSync(SQITCH_CONF) || !fs.statSync(SQITCH_CONF).isFile()){
     console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", CONF);
     process.exit(0);
   }
   const migrationNumber = padNumber(getMigrationNumber(), 10);
-  if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
+  if( diff == 'true' ){
+    if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
-  dumpSchema(DEV_DB_URI, `${TMP_DIR}/dev-${name}.sql`);
+    dumpSchema(DEV_DB_URI, `${TMP_DIR}/dev-${name}.sql`);
 
-  const containerName = getTempPostgres(`${MIGRATIONS_DIR}/deploy`);
-  dumpSchema(PROD_DB_URI, `${TMP_DIR}/prod-${name}.sql`);
-  stopContainer(containerName);
+    const containerName = getTempPostgres(`${MIGRATIONS_DIR}/deploy`);
+    dumpSchema(PROD_DB_URI, `${TMP_DIR}/prod-${name}.sql`);
+    stopContainer(containerName);
+  }
 
   addSqitchMigration(`${migrationNumber}-${name}`, note);
 
-  apgdiffToFile(`${TMP_DIR}/dev-${name}.sql`,
-                `${TMP_DIR}/prod-${name}.sql`,
-                `${MIGRATIONS_DIR}/revert/${migrationNumber}-${name}.sql`);
-  apgdiffToFile(`${TMP_DIR}/prod-${name}.sql`,
-                `${TMP_DIR}/dev-${name}.sql`,
-                `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${name}.sql`);
+  if( diff == 'true' ){
+    apgdiffToFile(`${TMP_DIR}/dev-${name}.sql`,
+                  `${TMP_DIR}/prod-${name}.sql`,
+                  `${MIGRATIONS_DIR}/revert/${migrationNumber}-${name}.sql`);
+    apgdiffToFile(`${TMP_DIR}/prod-${name}.sql`,
+                  `${TMP_DIR}/dev-${name}.sql`,
+                  `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${name}.sql`);
 
+    rimraf.sync(TMP_DIR);
+    console.log(`\x1b[31mATTENTION:\x1b[0m Make sure you check deploy/${migrationNumber}-${name}.sql for correctness, statement order is not handled!`);
+  }
   incrementMigrationNumber();
-  rimraf.sync(TMP_DIR);
+  
 };
 
-const runCmd = (cmd, params, options) => {
+const runCmd = (cmd, params, options, silent) => {
   let p = proc.spawnSync(cmd, params, options);
-  p.output.forEach(v => console.log(v ? v.toString() : ""));
+  if(silent !== true){
+    p.output.forEach(v => console.log(v ? v.toString() : ""));
+  }
   if(p.status != 0){
     process.exit(p.status);
   }
@@ -95,11 +105,20 @@ const runCmd = (cmd, params, options) => {
 }
 
 const stopContainer = (name) => {
-  runCmd("docker", [ "stop", name ]);
-  runCmd("docker", [ "rm", name ]);
+  runCmd("docker", [ "stop", name ], undefined, true);
+  runCmd("docker", [ "rm", name ], undefined, true);
+}
+const writeInitSql = (file) => {
+  fs.writeFileSync(file, [
+    '-- custom setup sql',
+    `create role "${DB_USER}" with login password '${DB_PASS}';`,
+  ].join("\n"));
 }
 const getTempPostgres = (sqlDir) => {
   const name = 'temp_postgres_' + Math.random().toString(36).substr(2, 5);
+  const initSqlFileName = padNumber(0, 10) + '-setup.sql';
+  const initSqlFile = `${sqlDir}/${initSqlFileName}`;
+  writeInitSql(initSqlFile);
   console.log('Starting temporary Postgre database')
   runCmd("docker", [ 
     "run", "-d", 
@@ -120,14 +139,16 @@ const getTempPostgres = (sqlDir) => {
   while( !finishedLoading ){
     iterations = iterations + 1;
     if( iterations > maxIterations ){
-      console.log('Giving up on waiting for db');
+      runCmd('docker', ['logs', '--tail', '30', name])
+      console.log('Gave up on waiting for db. The last 30 lines of log are above.');
+      stopContainer(name);
+      fs.unlinkSync(initSqlFile);
       process.exit(-1);
     }
     let p = proc.spawnSync('docker', ['logs', '--since', timestamp, name ]);
     timestamp = Math.floor(new Date() / 1000);
     p.output.forEach(v => {
       if( v ){
-        console.log(v.toString())
         if( v.toString().indexOf('PostgreSQL init process complete; ready for start up.') !== -1 ){
           finishedLoading = true;
         }
@@ -136,6 +157,7 @@ const getTempPostgres = (sqlDir) => {
     sleep.sleep(1);
   }
   sleep.sleep(1);
+  fs.unlinkSync(initSqlFile);
   console.log('PostgreSQL init process complete; ready for start up.');
   return name;
 }
@@ -143,7 +165,7 @@ const initSqitch = () => runCmd(SQITCH_CMD, ["init", DB_NAME, "--engine", "pg"],
 const addSqitchMigration = (name, note) => runCmd(SQITCH_CMD, ["add", name, "-n", note || `Add ${name} migration`], {cwd: MIGRATIONS_DIR})
 const dumpSchema = (DB_URI, file) => {
   runCmd(PG_DUMPALL_CMD, ['-f', `${file}.roles`, '--roles-only', '-d', DB_URI]);
-  runCmd(PG_DUMP_CMD, [DB_URI, '-f', `${file}.schema`, '--schema-only', '--no-owner', '--no-privileges']);
+  runCmd(PG_DUMP_CMD, [DB_URI, '-f', `${file}.schema`, '--schema-only', '--no-owner']);
   let data = [
 		fs.readFileSync(`${file}.roles`, 'utf-8')
       .split("\n")
