@@ -1,9 +1,13 @@
 {
-  "name": "subzero_devtools",
+  "name": "subzero-cli",
   "description": "A TUI for subZero",
-  "bin":  "./dist/main.js",
+  "bin":  {
+    "subzero":"./dist/main.js",
+    "subzero-dashboard":"./dist/dashboard.js",
+    "subzero-migrations":"./dist/migrations.js"
+  },
   "preferGlobal": true,
-  "version": "0.0.9",
+  "version": "0.1.1",
   "scripts": {
     "build": "babel src --out-dir dist"
   },
@@ -14,7 +18,9 @@
     "cli-highlight": "1.1.4",
     "chokidar": "1.6.1",
     "dotenv": "4.0.0",
-    "commander": "2.10.0"
+    "commander": "2.10.0",
+    "rimraf": "2.6.1",
+    "sleep": "5.1.1"
   },
   "devDependencies": {
     "babel-cli": "^6.6.4",

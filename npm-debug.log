@@ -1,0 +1,126 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/usr/local/Cellar/node/7.7.1_1/bin/node',
+1 verbose cli   '/usr/local/bin/npm',
+1 verbose cli   'publish' ]
+2 info using npm@4.1.2
+3 info using node@v7.7.1
+4 verbose publish [ '.' ]
+5 silly cache add args [ '.', null ]
+6 verbose cache add spec .
+7 silly cache add parsed spec Result {
+7 silly cache add   raw: '.',
+7 silly cache add   scope: null,
+7 silly cache add   escapedName: null,
+7 silly cache add   name: null,
+7 silly cache add   rawSpec: '.',
+7 silly cache add   spec: '/Users/ruslantalpa/Projects/subzero/devtools',
+7 silly cache add   type: 'directory' }
+8 verbose addLocalDirectory /Users/ruslantalpa/.npm/subzero-cli/0.1.0/package.tgz not in flight; packing
+9 verbose correctMkdir /Users/ruslantalpa/.npm correctMkdir not in flight; initializing
+10 info lifecycle subzero-cli@0.1.0~prepublish: subzero-cli@0.1.0
+11 silly lifecycle subzero-cli@0.1.0~prepublish: no script for prepublish, continuing
+12 info lifecycle subzero-cli@0.1.0~prepare: subzero-cli@0.1.0
+13 silly lifecycle subzero-cli@0.1.0~prepare: no script for prepare, continuing
+14 verbose tar pack [ '/Users/ruslantalpa/.npm/subzero-cli/0.1.0/package.tgz',
+14 verbose tar pack   '/Users/ruslantalpa/Projects/subzero/devtools' ]
+15 verbose tarball /Users/ruslantalpa/.npm/subzero-cli/0.1.0/package.tgz
+16 verbose folder /Users/ruslantalpa/Projects/subzero/devtools
+17 verbose addLocalTarball adding from inside cache /Users/ruslantalpa/.npm/subzero-cli/0.1.0/package.tgz
+18 verbose correctMkdir /Users/ruslantalpa/.npm correctMkdir not in flight; initializing
+19 silly cache afterAdd subzero-cli@0.1.0
+20 verbose afterAdd /Users/ruslantalpa/.npm/subzero-cli/0.1.0/package/package.json not in flight; writing
+21 verbose correctMkdir /Users/ruslantalpa/.npm correctMkdir not in flight; initializing
+22 verbose afterAdd /Users/ruslantalpa/.npm/subzero-cli/0.1.0/package/package.json written
+23 silly publish { name: 'subzero-cli',
+23 silly publish   description: 'A TUI for subZero',
+23 silly publish   bin:
+23 silly publish    { subzero: './dist/main.js',
+23 silly publish      'subzero-dashboard': './dist/dashboard.js',
+23 silly publish      'subzero-migrations': './dist/migrations.js' },
+23 silly publish   preferGlobal: true,
+23 silly publish   version: '0.1.0',
+23 silly publish   scripts: { build: 'babel src --out-dir dist' },
+23 silly publish   dependencies:
+23 silly publish    { blessed: 'git://github.com/steve-chavez/blessed.git',
+23 silly publish      react: '0.14.7',
+23 silly publish      'react-blessed': '0.1.8',
+23 silly publish      'cli-highlight': '1.1.4',
+23 silly publish      chokidar: '1.6.1',
+23 silly publish      dotenv: '4.0.0',
+23 silly publish      commander: '2.10.0',
+23 silly publish      rimraf: '2.6.1',
+23 silly publish      sleep: '5.1.1' },
+23 silly publish   devDependencies:
+23 silly publish    { 'babel-cli': '^6.6.4',
+23 silly publish      'babel-preset-es2015': '^6.6.0',
+23 silly publish      'babel-preset-react': '^6.5.0',
+23 silly publish      'babel-preset-stage-0': '^6.5.0',
+23 silly publish      'babel-register': '^6.6.0' },
+23 silly publish   pkg: { scripts: 'node_modules/blessed/**/*.js' },
+23 silly publish   readme: '\n# subZero DevTools\n\nThis tool is meant to be used with the Docker based starter kits for [PostgREST](https://github.com/subzerocloud/postgrest-starter-kit/) and [subZero](https://github.com/subzerocloud/subzero-starter-kit/).\n\nAfter installing, executing the command in the root of your project will give you this interface.\n\n\n![DevTools](/screenshot.png?raw=true "DevTools")\n\n\n## Features\n\n✓ Convenient interface to view the logs of all stack components<br>\n✓ Live code reloading (for SQL/Lua/Nginx configs)<br>\n✓ Database schema migration management<br>\n✓ Community support on [Slack](https://slack.subzero.cloud/)<br>\n\n\n\n## Install\n\n### Dependencies\nThese dependencies are only used for `migrations` command.\n\nFollow [sqitch](http://sqitch.org/) install instructions for your system.\n\n```bash\n# example for mac\nbrew tap theory/sqitch\nbrew install sqitch\n```\n\nDownload a patched version of [apgdiff](https://github.com/subzerocloud/apgdiff) and place it in your `PATH`\n\n```\nwget -o /usr/local/bin/apgdiff-2.5-subzero.jar \\\n  https://github.com/subzerocloud/apgdiff/releases/download/2.5.0-subzero/apgdiff-2.5-subzero.jar\n```\n\n\n### cli\nUse `npm` to install the subzero developer tools\n```bash\n  npm install -g subzero-cli\n  # check it was installed\n  subzero --help\n```\n\n## Installing from source\n\nAfter cloning the repo, run these commands.\n\n```bash\n  npm install\n  npm run build\n  npm link\n```\n\nThis will create a command available in your PATH called ```subzero```.\n\nTo rebuild and recreate the command do:\n\n```bash\n  npm run build && npm unlink subzero & npm link\n```\n\n\n## License\n\nCopyright © 2017-present subZero Cloud, LLC.<br />\nThis source code is licensed under the [GPLv3](https://github.com/subzerocloud/devtools/blob/master/LICENSE.txt)<br />\nThe documentation to the project is licensed under the [CC BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/) license.\n',
+23 silly publish   readmeFilename: 'README.md',
+23 silly publish   gitHead: '0d306615441f3b7df456023dc4c2661135fa71a7',
+23 silly publish   _id: 'subzero-cli@0.1.0',
+23 silly publish   _shasum: 'afeae91b85a335734960dfcfddde75a1c1b80192',
+23 silly publish   _from: '.' }
+24 info lifecycle subzero-cli@0.1.0~prepublishOnly: subzero-cli@0.1.0
+25 silly lifecycle subzero-cli@0.1.0~prepublishOnly: no script for prepublishOnly, continuing
+26 verbose getPublishConfig undefined
+27 silly mapToRegistry name subzero-cli
+28 silly mapToRegistry using default registry
+29 silly mapToRegistry registry https://registry.npmjs.org/
+30 silly mapToRegistry data Result {
+30 silly mapToRegistry   raw: 'subzero-cli',
+30 silly mapToRegistry   scope: null,
+30 silly mapToRegistry   escapedName: 'subzero-cli',
+30 silly mapToRegistry   name: 'subzero-cli',
+30 silly mapToRegistry   rawSpec: '',
+30 silly mapToRegistry   spec: 'latest',
+30 silly mapToRegistry   type: 'tag' }
+31 silly mapToRegistry uri https://registry.npmjs.org/subzero-cli
+32 verbose publish registryBase https://registry.npmjs.org/
+33 silly publish uploading /Users/ruslantalpa/.npm/subzero-cli/0.1.0/package.tgz
+34 verbose request uri https://registry.npmjs.org/subzero-cli
+35 verbose request sending authorization for write operation
+36 info attempt registry request try #1 at 2:40:48 PM
+37 verbose request using bearer token for auth
+38 verbose request id dc18c55aac632a1a
+39 http request PUT https://registry.npmjs.org/subzero-cli
+40 http 403 https://registry.npmjs.org/subzero-cli
+41 verbose headers { 'content-type': 'application/json',
+41 verbose headers   'cache-control': 'max-age=300',
+41 verbose headers   'content-length': '95',
+41 verbose headers   'accept-ranges': 'bytes',
+41 verbose headers   date: 'Fri, 11 Aug 2017 11:40:51 GMT',
+41 verbose headers   via: '1.1 varnish',
+41 verbose headers   connection: 'keep-alive',
+41 verbose headers   'x-served-by': 'cache-fra1231-FRA',
+41 verbose headers   'x-cache': 'MISS',
+41 verbose headers   'x-cache-hits': '0',
+41 verbose headers   'x-timer': 'S1502451649.265270,VS0,VE2160',
+41 verbose headers   vary: 'Accept-Encoding, Accept' }
+42 verbose request invalidating /Users/ruslantalpa/.npm/registry.npmjs.org/subzero-cli on PUT
+43 error publish Failed PUT 403
+44 verbose stack Error: "You cannot publish over the previously published version 0.1.0." : subzero-cli
+44 verbose stack     at makeError (/usr/local/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:304:12)
+44 verbose stack     at CachingRegistryClient.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:292:14)
+44 verbose stack     at Request._callback (/usr/local/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:212:14)
+44 verbose stack     at Request.self.callback (/usr/local/lib/node_modules/npm/node_modules/request/request.js:186:22)
+44 verbose stack     at emitTwo (events.js:106:13)
+44 verbose stack     at Request.emit (events.js:194:7)
+44 verbose stack     at Request.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/request/request.js:1081:10)
+44 verbose stack     at emitOne (events.js:96:13)
+44 verbose stack     at Request.emit (events.js:191:7)
+44 verbose stack     at IncomingMessage.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/request/request.js:1001:12)
+45 verbose statusCode 403
+46 verbose pkgid subzero-cli
+47 verbose cwd /Users/ruslantalpa/Projects/subzero/devtools
+48 error Darwin 15.0.0
+49 error argv "/usr/local/Cellar/node/7.7.1_1/bin/node" "/usr/local/bin/npm" "publish"
+50 error node v7.7.1
+51 error npm  v4.1.2
+52 error code E403
+53 error "You cannot publish over the previously published version 0.1.0." : subzero-cli
+54 error If you need help, you may report this error at:
+54 error     <https://github.com/npm/npm/issues>
+55 verbose exit [ 1, true ]
