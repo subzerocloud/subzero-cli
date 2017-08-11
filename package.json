@@ -1,10 +1,10 @@
 {
   "name": "subzero-cli",
   "description": "A TUI for subZero",
-  "bin":  {
-    "subzero":"dist/main.js",
-    "subzero-dashboard":"dist/dashboard.js",
-    "subzero-migrations":"dist/migrations.js"
+  "bin": {
+    "subzero": "dist/main.js",
+    "subzero-dashboard": "dist/dashboard.js",
+    "subzero-migrations": "dist/migrations.js"
   },
   "files": [
     "LICENSE.txt",
@@ -12,7 +12,7 @@
     "dist/"
   ],
   "preferGlobal": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "scripts": {
     "build": "babel src --out-dir dist"
   },
