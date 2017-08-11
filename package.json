@@ -2,10 +2,15 @@
   "name": "subzero-cli",
   "description": "A TUI for subZero",
   "bin":  {
-    "subzero":"./dist/main.js",
-    "subzero-dashboard":"./dist/dashboard.js",
-    "subzero-migrations":"./dist/migrations.js"
+    "subzero":"dist/main.js",
+    "subzero-dashboard":"dist/dashboard.js",
+    "subzero-migrations":"dist/migrations.js"
   },
+  "files": [
+    "LICENSE.txt",
+    "README.md",
+    "dist/"
+  ],
   "preferGlobal": true,
   "version": "0.1.1",
   "scripts": {
@@ -29,7 +34,13 @@
     "babel-preset-stage-0": "^6.5.0",
     "babel-register": "^6.6.0"
   },
-  "pkg": {
-    "scripts": "node_modules/blessed/**/*.js"
-  }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/subzerocloud/devtools.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/subzerocloud/devtools/issues"
+  },
+  "homepage": "https://github.com/subzerocloud/devtools"
 }

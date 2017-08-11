@@ -33,7 +33,7 @@ brew install sqitch
 
 Download a patched version of [apgdiff](https://github.com/subzerocloud/apgdiff) and place it in your `PATH`
 
-```
+```bash
 wget -o /usr/local/bin/apgdiff-2.5-subzero.jar \
   https://github.com/subzerocloud/apgdiff/releases/download/2.5.0-subzero/apgdiff-2.5-subzero.jar
 ```
