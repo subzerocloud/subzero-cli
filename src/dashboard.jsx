@@ -1,6 +1,10 @@
+#!/usr/bin/env node
 "use strict";
+
 import fs from 'fs';
 
+import program from 'commander';
+import {version} from '../package.json';
 import proc from 'child_process';
 import React, {Component} from 'react';
 import blessed from 'blessed';
@@ -335,4 +339,9 @@ const runDashboard = () => {
   render(<Dashboard containers={containers} />, screen);
 }
 
-export { runDashboard as default };
+
+program
+  .version(version)
+  .parse(process.argv);
+
+runDashboard();

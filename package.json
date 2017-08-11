@@ -1,9 +1,13 @@
 {
-  "name": "subzero_devtools",
+  "name": "subzero",
   "description": "A TUI for subZero",
-  "bin":  "./dist/main.js",
+  "bin":  {
+    "subzero":"./dist/main.js",
+    "subzero-dashboard":"./dist/dashboard.js",
+    "subzero-migrations":"./dist/migrations.js"
+  },
   "preferGlobal": true,
-  "version": "0.0.9",
+  "version": "0.1.0",
   "scripts": {
     "build": "babel src --out-dir dist"
   },

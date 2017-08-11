@@ -1,4 +1,7 @@
+#!/usr/bin/env node
 "use strict";
+
+import program from 'commander';
 import proc from 'child_process';
 import fs from 'fs';
 import rimraf from 'rimraf';
@@ -30,15 +33,21 @@ const SQITCH_CONF = `${MIGRATIONS_DIR}/sqitch.conf`;
 const MIGRATION_NUMBER_FILE = `${MIGRATIONS_DIR}/.migration_number`;
 
 const initMigrations = () => {
-  if (!fs.existsSync(MIGRATIONS_DIR)) fs.mkdirSync(MIGRATIONS_DIR);
+  if (fs.existsSync(MIGRATIONS_DIR)) {
+    console.log(`Migrations directory already exists: ${MIGRATIONS_DIR}`);
+    process.exit(0);
+  }
+
+  fs.mkdirSync(MIGRATIONS_DIR);
   if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
   fs.writeFileSync(MIGRATION_NUMBER_FILE, '1');
   const migrationNumber = padNumber(getMigrationNumber(), 10);
-  initSqitch();
-
+  
   dumpSchema(DEV_DB_URI, `${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`);
   fs.closeSync(fs.openSync(`${TMP_DIR}/prod-${INITIAL_FILE_NAME}.sql`, 'w'));
-  
+
+  initSqitch();
+
   addSqitchMigration(`${migrationNumber}-${INITIAL_FILE_NAME}`);
 
   apgdiffToFile(`${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`,
@@ -165,14 +174,20 @@ const initSqitch = () => runCmd(SQITCH_CMD, ["init", DB_NAME, "--engine", "pg"],
 const addSqitchMigration = (name, note) => runCmd(SQITCH_CMD, ["add", name, "-n", note || `Add ${name} migration`], {cwd: MIGRATIONS_DIR})
 const dumpSchema = (DB_URI, file) => {
   runCmd(PG_DUMPALL_CMD, ['-f', `${file}.roles`, '--roles-only', '-d', DB_URI]);
-  runCmd(PG_DUMP_CMD, [DB_URI, '-f', `${file}.schema`, '--schema-only', '--no-owner']);
+  runCmd(PG_DUMP_CMD, [DB_URI, '-f', `${file}.schema`, '--schema-only']);
   let data = [
 		fs.readFileSync(`${file}.roles`, 'utf-8')
       .split("\n")
       .filter(ln => IGNORE_ROLES.map(r => ln.indexOf('ROLE '+r)).every(p => p == -1) ) //filter out line referring to ignored roles
       .map(ln => ln.replace(` GRANTED BY ${SUPER_USER}`, '')) //remove unwanted string
+      .filter(ln => ln.indexOf('ALTER ROLE') == -1) //RDS does not allow this
       .join("\n"),
     fs.readFileSync(`${file}.schema`, 'utf-8')
+      .split("\n")
+      .filter(ln => ln.indexOf('COMMENT ON EXTENSION') == -1) //RDS doew not allow this
+      .filter(ln => ln.indexOf(`OWNER TO ${SUPER_USER};`) == -1) //don't keep owner info when the owner is privileges
+      .join("\n")
+
   ];
   fs.writeFileSync(file, data.join("\n"), 'utf-8');
   fs.unlinkSync(`${file}.roles`);
@@ -186,6 +201,18 @@ const apgdiffToFile = (file1, file2, destFile) => {
     console.log(p.stderr.toString());
 };
 
-//const surroundWithBeginCommit = str => "BEGIN;\n" + str + "\nCOMMIT;"
+program
+  .command('init')
+  .description('Setup sqitch config and create the first migration')
+  .action(() => initMigrations());
 
-export { initMigrations, addMigration };
+program
+  .command('add <name>')
+  .option("-n, --note [note]", "Add sqitch migration note")
+  .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
+  .description('Adds a new sqitch migration')
+  .action((name, options) => {
+      addMigration(name, options.note, options.diff);
+  });
+
+program.parse(process.argv);

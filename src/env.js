@@ -1,15 +1,17 @@
 import {dirname,resolve} from 'path';
 import {config} from 'dotenv';
-import {program} from './program.js';
 import fs from 'fs';
 
 
 let cfg = {
-  path: typeof(program.env) == 'string' ? program.env : '.env'
+  //path: typeof(program.env) == 'string' ? program.env : '.env'
+  path: '.env'
 };
 
 if (!fs.existsSync(cfg.path) || !fs.statSync(cfg.path).isFile()) {
-  console.log("\x1b[31mError:\x1b[0m .env file '%s' does not exist", cfg.path);
+  //console.log("\x1b[31mError:\x1b[0m .env file '%s' does not exist", cfg.path);
+  console.log("\x1b[31mError:\x1b[0m .env file does not exist");
+  console.log('Please run this program in the project rood directory');
   process.exit(0);
 }
 
