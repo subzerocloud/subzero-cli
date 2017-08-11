@@ -35,7 +35,7 @@ export const PROD_PG_URI = process.env.PROD_PG_URI || 1000;
  * curl -L https://patch-diff.githubusercontent.com/raw/fordfrog/apgdiff/pull/210.patch > 210.patch
  * git apply --check 210.patch
  */
-export const APGDIFF_JAR_PATH = process.env.APGDIFF_JAR_PATH || 'apgdiff-2.4.jar'; 
+export const APGDIFF_JAR_PATH = process.env.APGDIFF_JAR_PATH || 'apgdiff-2.5-subzero.jar'; 
 export const SQITCH_CMD = process.env.SQITCH_CMD || 'sqitch'; 
 export const PSQL_CMD = process.env.PSQL_CMD || 'psql';
 export const PG_DUMP_CMD = process.env.PG_DUMP_CMD || 'pg_dump';

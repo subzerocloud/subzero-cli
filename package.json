@@ -1,5 +1,5 @@
 {
-  "name": "subzero",
+  "name": "subzero-cli",
   "description": "A TUI for subZero",
   "bin":  {
     "subzero":"./dist/main.js",
