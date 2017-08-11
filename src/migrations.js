@@ -173,6 +173,7 @@ const getTempPostgres = (sqlDir) => {
 const initSqitch = () => runCmd(SQITCH_CMD, ["init", DB_NAME, "--engine", "pg"], {cwd: MIGRATIONS_DIR})
 const addSqitchMigration = (name, note) => runCmd(SQITCH_CMD, ["add", name, "-n", note || `Add ${name} migration`], {cwd: MIGRATIONS_DIR})
 const dumpSchema = (DB_URI, file) => {
+  const replace_superuser = new RegExp(`GRANT ([a-z0-9_-]+) TO ${SUPER_USER}`, "gi");
   runCmd(PG_DUMPALL_CMD, ['-f', `${file}.roles`, '--roles-only', '-d', DB_URI]);
   runCmd(PG_DUMP_CMD, [DB_URI, '-f', `${file}.schema`, '--schema-only']);
   let data = [
@@ -181,6 +182,7 @@ const dumpSchema = (DB_URI, file) => {
       .filter(ln => IGNORE_ROLES.map(r => ln.indexOf('ROLE '+r)).every(p => p == -1) ) //filter out line referring to ignored roles
       .map(ln => ln.replace(` GRANTED BY ${SUPER_USER}`, '')) //remove unwanted string
       .filter(ln => ln.indexOf('ALTER ROLE') == -1) //RDS does not allow this
+      .map(ln => ln.replace(replace_superuser, 'GRANT $1 TO current_user'))
       .join("\n"),
     fs.readFileSync(`${file}.schema`, 'utf-8')
       .split("\n")
