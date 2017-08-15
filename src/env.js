@@ -30,11 +30,6 @@ export const DB_HOST = process.env.DB_HOST;
 export const DB_NAME = process.env.DB_NAME;
 export const LOG_LENGTH = process.env.LOG_LENGTH || 1000;
 export const PROD_PG_URI = process.env.PROD_PG_URI || 1000;
-/**
- * apgdiff with patches
- * curl -L https://patch-diff.githubusercontent.com/raw/fordfrog/apgdiff/pull/210.patch > 210.patch
- * git apply --check 210.patch
- */
 export const APGDIFF_JAR_PATH = process.env.APGDIFF_JAR_PATH || 'apgdiff-2.5-subzero.jar'; 
 export const SQITCH_CMD = process.env.SQITCH_CMD || 'sqitch'; 
 export const PSQL_CMD = process.env.PSQL_CMD || 'psql';
