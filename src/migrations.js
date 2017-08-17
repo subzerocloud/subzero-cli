@@ -70,12 +70,13 @@ const getMigrationNumber = () => parseInt(fs.readFileSync(MIGRATION_NUMBER_FILE)
 const incrementMigrationNumber = () => fs.writeFileSync(MIGRATION_NUMBER_FILE, (getMigrationNumber() + 1).toString());
 const addMigration = (name, note, diff) => {
 
+  console.log(name, note, diff);
   if (!fs.existsSync(SQITCH_CONF) || !fs.statSync(SQITCH_CONF).isFile()){
     console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", CONF);
     process.exit(0);
   }
   const migrationNumber = padNumber(getMigrationNumber(), 10);
-  if( diff == 'true' ){
+  if( diff ){
     if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
     dumpSchema(DEV_DB_URI, `${TMP_DIR}/dev-${name}.sql`);
@@ -87,7 +88,8 @@ const addMigration = (name, note, diff) => {
 
   addSqitchMigration(`${migrationNumber}-${name}`, note);
 
-  if( diff == 'true' ){
+  if( diff ){
+    console.log('Diffing sql files')
     apgdiffToFile(`${TMP_DIR}/dev-${name}.sql`,
                   `${TMP_DIR}/prod-${name}.sql`,
                   `${MIGRATIONS_DIR}/revert/${migrationNumber}-${name}.sql`);
@@ -97,6 +99,9 @@ const addMigration = (name, note, diff) => {
 
     rimraf.sync(TMP_DIR);
     console.log(`\x1b[31mATTENTION:\x1b[0m Make sure you check deploy/${migrationNumber}-${name}.sql for correctness, statement order is not handled!`);
+  }
+  else {
+    console.log('Creating empty migration')
   }
   incrementMigrationNumber();
   
@@ -214,6 +219,7 @@ program
   .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
   .description('Adds a new sqitch migration')
   .action((name, options) => {
+      console.log(options);
       addMigration(name, options.note, options.diff);
   });
 

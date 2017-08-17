@@ -99,24 +99,7 @@ class Dashboard extends Component {
         logger.log('Starting code reload ------------------------');
         spinner.start()
         if(path.endsWith('.sql')){
-          //try to optimistically execute just the changed file
-          this.runSql( [DB_NAME,
-            '-f', relPath.replace('./sql/', DB_DIR)
-          ])
-          .on('close', (code) => {
-            if(code != 0){
-              this.resetDb().on('close', onReady);
-            }
-            else {
-              if(containers['postgrest']) {
-                if(containers['openresty']){this.sendHUP(containers['openresty'].name);}
-                if(containers['postgrest']){this.sendHUP(containers['postgrest'].name).on('close', onReady);}
-              }
-              else{
-                onReady();
-              }
-            }
-          });
+          this.resetDb().on('close', onReady);
         }else{
           if(containers['openresty']){
             this.sendHUP(containers['openresty'].name).on('close', onReady);
