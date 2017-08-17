@@ -70,7 +70,6 @@ const getMigrationNumber = () => parseInt(fs.readFileSync(MIGRATION_NUMBER_FILE)
 const incrementMigrationNumber = () => fs.writeFileSync(MIGRATION_NUMBER_FILE, (getMigrationNumber() + 1).toString());
 const addMigration = (name, note, diff) => {
 
-  console.log(name, note, diff);
   if (!fs.existsSync(SQITCH_CONF) || !fs.statSync(SQITCH_CONF).isFile()){
     console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", CONF);
     process.exit(0);
@@ -219,7 +218,6 @@ program
   .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
   .description('Adds a new sqitch migration')
   .action((name, options) => {
-      console.log(options);
       addMigration(name, options.note, options.diff);
   });
 
