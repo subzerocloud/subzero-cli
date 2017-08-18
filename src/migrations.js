@@ -16,7 +16,6 @@ import {
     DB_NAME,
     DB_USER,
     DB_PASS,
-    PROD_PG_URI,
     APGDIFF_JAR_PATH,
     SQITCH_CMD,
     PG_DUMP_CMD,
