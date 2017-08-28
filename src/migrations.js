@@ -108,7 +108,10 @@ const addMigration = (name, note, diff) => {
 const runCmd = (cmd, params, options, silent) => {
   let p = proc.spawnSync(cmd, params, options);
   if(silent !== true){
-    p.output.forEach(v => console.log(v ? v.toString() : ""));
+    let out = p.stdout.toString(),
+        err = p.stderr.toString();
+    if(out) console.log(out);
+    if(err) console.log(err);
   }
   if(p.status != 0){
     process.exit(p.status);
