@@ -1,12 +1,12 @@
 
-# subZero DevTools
+# subZero CLI
 
 This tool is meant to be used with the Docker based starter kits for [PostgREST](https://github.com/subzerocloud/postgrest-starter-kit/) and [subZero](https://github.com/subzerocloud/subzero-starter-kit/).
 
 After installing, executing the command in the root of your project will give you this interface.
 
 
-![DevTools](/screenshot.png?raw=true "DevTools")
+![subzero-cli](/screenshot.png?raw=true "DevTools")
 
 
 ## Features
@@ -21,7 +21,7 @@ After installing, executing the command in the root of your project will give yo
 ## Install
 
 ### Dependencies
-These dependencies are only used for `migrations` command.
+These dependencies are only used for `migrations` command, you can skip/postpone this if you use just the `dashboard` subcommand.
 
 Follow [sqitch](http://sqitch.org/) install instructions for your system.
 
@@ -31,11 +31,14 @@ brew tap theory/sqitch
 brew install sqitch
 ```
 
-Download a patched version of [apgdiff](https://github.com/subzerocloud/apgdiff) and place it in your `PATH`
+Download a patched version of [apgdiff](https://github.com/subzerocloud/apgdiff) and set the env var used by `subzero-cli` to find it
 
 ```bash
-wget -o /usr/local/bin/apgdiff-2.5-subzero.jar \
-  https://github.com/subzerocloud/apgdiff/releases/download/2.5.0-subzero/apgdiff-2.5-subzero.jar
+wget -O ~/apgdiff-2.5-subzero.jar \
+  https://github.com/subzerocloud/apgdiff/releases/download/2.5.2-subzero/apgdiff-2.5.2-subzero.jar
+
+echo "export APGDIFF_JAR_PATH=~/apgdiff-2.5-subzero.jar" >> ~/.bash_profile
+export APGDIFF_JAR_PATH=~/apgdiff-2.5-subzero.jar
 ```
 
 
