@@ -5,12 +5,11 @@ import {COMPOSE_PROJECT_NAME, ENV_FILE, APP_DIR} from './env.js'
 import program from 'commander';
 import {version} from '../package.json';
 
-
 program
   .version(version)
   .command('dashboard', 'Open dashboard')
-  .command('migrations', 'Manage database migrations process (experimental)');
-
+  .command('migrations', 'Manage database migrations process (experimental)')
+  .command('service', 'Actions for your subzero account');
 
 program.on('--help', function(){
   console.log('');
