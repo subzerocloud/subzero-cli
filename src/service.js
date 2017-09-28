@@ -6,6 +6,7 @@ import fs from 'fs';
 import program from 'commander';
 import inquirer from 'inquirer';
 import request from 'superagent';
+import rimraf from 'rimraf';
 
 const SERVER_URL = "http://localhost:3000";
 
@@ -66,5 +67,18 @@ program
         login(username, password);
     }
   });
+
+const logout = () => {
+  if(fs.existsSync(SUBZERO_DIR)){
+    rimraf.sync(SUBZERO_DIR);
+    console.log("Removing subzero credentials");
+  }else
+    console.log("Not logged in to subzero");
+}
+
+program
+  .command('logout')
+  .description('Logout of subzero')
+  .action(() => logout());
 
 program.parse(process.argv);
