@@ -20,19 +20,19 @@ const login = (username, password) => {
     .send({"email": username, "password": password})
     .end((err, res) => {
       if(res.ok){
-        if(!fs.existsSync(SUBZERO_DIR)) {
-          fs.mkdirSync(SUBZERO_DIR);
-        }
-        fs.writeFileSync(`${SUBZERO_DIR}/${SUBZERO_CREDENTIALS_FILE}`,
-                         `{ token: "${res.body[0].token}" }`);
+        saveToken(res.body[0].token);
         console.log("\x1b[32m%s\x1b[0m", "Login succeeded");
       }else
         console.log("\x1b[31m%s\x1b[0m", res.body.message);
     });
 }
 
-// options.key returns bool if a value is not specified(e.g. subzero service login -u -p, options.{username,password} gives true), so make sure is a string
-const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
+const saveToken = token => {
+  if(!fs.existsSync(SUBZERO_DIR))
+    fs.mkdirSync(SUBZERO_DIR);
+  fs.writeFileSync(`${SUBZERO_DIR}/${SUBZERO_CREDENTIALS_FILE}`,
+                   `{ token: "${token}" }`);
+}
 
 program
   .command('login')
@@ -68,6 +68,9 @@ program
     }
   });
 
+// options.key returns bool if a value is not specified(e.g. subzero service login -u -p, options.{username,password} gives true), so make sure is a string
+const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
+
 const logout = () => {
   if(fs.existsSync(SUBZERO_DIR)){
     rimraf.sync(SUBZERO_DIR);
@@ -80,5 +83,44 @@ program
   .command('logout')
   .description('Logout of subzero')
   .action(() => logout());
+
+const signup = (name, email, password) => {
+  request
+    .post(`${SERVER_URL}/rpc/signup`)
+    .send({"name": name, "email": email, "password": password})
+  .end((err, res) => {
+    if(res.ok){
+        console.log("\x1b[32m%s\x1b[0m", "Account created");
+      }else
+        console.log("\x1b[31m%s\x1b[0m", res.body.message);
+    });
+}
+
+program
+  .command('signup')
+  .description('Create your account on subzero')
+  .action(() => {
+    inquirer.prompt([
+      {
+        type: 'input',
+        message: "Enter your name",
+        name: 'name',
+        validate: val => notEmptyString(val)?true:"Please enter your name"
+      },
+      {
+        type: 'input',
+        message: "Enter your email",
+        name: 'email',
+        validate: val => notEmptyString(val)?true:"Please enter your email"
+      },
+      {
+        type: 'password',
+        message: 'Enter your password',
+        name: 'password',
+        mask: '*',
+        validate: val => notEmptyString(val)?true:"Please enter your password"
+      }
+    ]).then(answers => signup(answers.name, answers.email, answers.password));
+  });
 
 program.parse(process.argv);
