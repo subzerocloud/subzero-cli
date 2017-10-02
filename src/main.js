@@ -10,7 +10,7 @@ program
   .version(version)
   .command('dashboard', 'Open dashboard')
   .command('migrations', 'Manage database migrations process (experimental)')
-  .command('service', 'Actions for your subzero account');
+  .command('cloud', 'Actions for your subzero.cloud account');
 
 program.on('--help', function(){
   console.log('');

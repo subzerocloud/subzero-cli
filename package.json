@@ -5,7 +5,7 @@
     "subzero": "dist/main.js",
     "subzero-dashboard": "dist/dashboard.js",
     "subzero-migrations": "dist/migrations.js",
-    "subzero-service": "dist/service.js"
+    "subzero-cloud": "dist/cloud.js"
   },
   "files": [
     "LICENSE.txt",
