@@ -223,7 +223,16 @@ program
           type: 'input',
           name: 'db_port',
           message: 'Enter the db port',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
+          validate: val => {
+            if(!notEmptyString(val))
+              return "Cannot be empty";
+            else if(isNaN(val))
+              return "Must be a number";
+            else if(!(1024 < parseInt(val) && parseInt(val) < 65535))
+              return "Must be a valid port number";
+            else
+              return true;
+          }
         },
         {
           type: 'input',
