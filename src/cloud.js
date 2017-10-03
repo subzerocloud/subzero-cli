@@ -9,6 +9,7 @@ import request from 'superagent';
 import rimraf from 'rimraf';
 import colors from 'colors';
 import {highlight} from 'cli-highlight';
+import validator from 'validator';
 
 const SERVER_URL = "http://localhost:3000";
 
@@ -254,9 +255,10 @@ program
           validate: val => notEmptyString(val)?true:"Cannot be empty"
         },
         {
-          type: 'input',
+          type: 'password',
           name: 'db_authenticator_pass',
           message: 'Enter the db authenticator role password',
+          mask: '*',
           validate: val => notEmptyString(val)?true:"Cannot be empty"
         },
         {
@@ -291,5 +293,42 @@ program
   .command('list')
   .description('List your applications on subzero')
   .action(() => listApplications(readToken()));
+
+const deleteApplication = (id, token) => {
+  request
+    .delete(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
+    .set("Authorization", `Bearer ${token}`)
+    .set("Prefer", "return=representation")
+    .set("Accept", "application/vnd.pgrst.object")
+    .end((err, res) => {
+      if(res.ok)
+        console.log("Application %s deleted", res.body.id);
+      else
+        console.log("%s".red, res.body.message);
+    });
+}
+
+program
+  .command('delete')
+  .description('Delete a subzero application')
+  .action(() => {
+    inquirer.prompt([
+      {
+        type: 'input',
+        message: "Enter the application id",
+        name: 'id',
+        validate: val => {
+          if(!notEmptyString(val))
+            return "Please enter the application id";
+          else if(!validator.isUUID(val))
+            return "Please enter a valid id";
+          else
+            return true;
+        }
+      }
+    ]).then(answers => {
+      deleteApplication(answers.id, readToken());
+    });
+  });
 
 program.parse(process.argv);
