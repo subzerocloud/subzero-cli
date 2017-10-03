@@ -7,12 +7,13 @@ import program from 'commander';
 import inquirer from 'inquirer';
 import request from 'superagent';
 import rimraf from 'rimraf';
+import colors from 'colors';
 
 const SERVER_URL = "http://localhost:3000";
 
 const HOME_DIR = os.homedir();
 const SUBZERO_DIR = `${HOME_DIR}/.subzero`
-const SUBZERO_CREDENTIALS_FILE = "credentials.json"
+const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
 
 const login = (username, password) => {
   request
@@ -21,17 +22,17 @@ const login = (username, password) => {
     .end((err, res) => {
       if(res.ok){
         saveToken(res.body[0].token);
-        console.log("\x1b[32m%s\x1b[0m", "Login succeeded");
+        console.log("Login succeeded".green);
       }else
-        console.log("\x1b[31m%s\x1b[0m", res.body.message);
+        console.log("%s".red, res.body.message);
     });
 }
 
 const saveToken = token => {
   if(!fs.existsSync(SUBZERO_DIR))
     fs.mkdirSync(SUBZERO_DIR);
-  fs.writeFileSync(`${SUBZERO_DIR}/${SUBZERO_CREDENTIALS_FILE}`,
-                   `{ token: "${token}" }`);
+  fs.writeFileSync(SUBZERO_CREDENTIALS_FILE,
+                   `{ "token": "${token}" }`);
 }
 
 program
@@ -90,9 +91,9 @@ const signup = (name, email, password) => {
     .send({"name": name, "email": email, "password": password})
   .end((err, res) => {
     if(res.ok){
-        console.log("\x1b[32m%s\x1b[0m", "Account created");
+        console.log("Account created".green);
       }else
-        console.log("\x1b[31m%s\x1b[0m", res.body.message);
+        console.log("%s".red, res.body.message);
     });
 }
 
@@ -121,6 +122,147 @@ program
         validate: val => notEmptyString(val)?true:"Please enter your password"
       }
     ]).then(answers => signup(answers.name, answers.email, answers.password));
+  });
+
+
+const createApplication = (token, appConfig) => {
+  request
+    .post(`${SERVER_URL}/applications`)
+    .send({...appConfig})
+    .set("Authorization", `Bearer ${token}`)
+    .end((err, res) => {
+      if(res.ok){
+        console.log("App created".green);
+      }else
+        console.log("%s".red, res.body.message);
+    });
+}
+
+const readToken = () => {
+  if (!fs.existsSync(SUBZERO_CREDENTIALS_FILE) || !fs.statSync(SUBZERO_CREDENTIALS_FILE).isFile()){
+    console.log("Error: ".red + "You need to be logged in to make this operation, please run " + "'subzero cloud login'".white);
+    process.exit(0);
+  } else {
+    try {
+      let token = JSON.parse(fs.readFileSync(SUBZERO_CREDENTIALS_FILE, 'utf8')).token;
+      if(!token){
+        console.log("Error: ".red + "No 'token' key in .subzero/credentials.json, please try to login again");
+        process.exit(0);
+      } else
+        return token;
+    } catch(e) {
+      console.log("Error: ".red + "Invalid json in .subzero/credentials.json, please try to login again");
+      process.exit(0);
+    }
+  }
+}
+
+program
+  .command('create')
+  .description('Create an app on subzero')
+  .action(() => {
+    inquirer.prompt([
+      {
+        type: 'list',
+        name: 'db_location',
+        message: "Would you like subzero to create a database for you?",
+        choices: [
+          {
+            name: 'Yes',
+            value: 'container'
+          },
+          {
+            name: "No, I'll provide my own database",
+            value: 'external'
+          }
+        ]
+      }
+    ]).then(answers => {
+      let db_location = answers.db_location,
+          adminCreds = db_location == 'container'?[
+        {
+          type: 'input',
+          name: 'db_admin',
+          message: 'Enter the database administrator account',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'password',
+          name: 'db_admin_pass',
+          message: 'Enter the database administrator account password',
+          mask: '*',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        }
+      ]:[];
+      inquirer.prompt([
+        {
+          type: 'input',
+          name: 'name',
+          message: 'Enter your application name',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'domain',
+          message: 'Enter your domain',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'jwt_secret',
+          message: 'Enter your jwt secret',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'db_host',
+          message: 'Enter the db host',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'db_port',
+          message: 'Enter the db port',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'db_name',
+          message: 'Enter the db name',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'db_schema',
+          message: 'Enter the db schema',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'db_authenticator',
+          message: 'Enter the db authenticator role',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'db_authenticator_pass',
+          message: 'Enter the db authenticator role password',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'db_anon_role',
+          message: 'Enter the db anonymous role',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'version',
+          message: 'Enter your application version',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        }
+      ].concat(adminCreds)).then(answers => createApplication(readToken(), {...answers, db_location: db_location}));
+    });
   });
 
 program.parse(process.argv);
