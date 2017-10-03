@@ -8,6 +8,7 @@ import inquirer from 'inquirer';
 import request from 'superagent';
 import rimraf from 'rimraf';
 import colors from 'colors';
+import {highlight} from 'cli-highlight';
 
 const SERVER_URL = "http://localhost:3000";
 
@@ -131,9 +132,9 @@ const createApplication = (token, appConfig) => {
     .send({...appConfig})
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
-      if(res.ok){
+      if(res.ok)
         console.log("App created".green);
-      }else
+      else
         console.log("%s".red, res.body.message);
     });
 }
@@ -159,7 +160,7 @@ const readToken = () => {
 
 program
   .command('create')
-  .description('Create an app on subzero')
+  .description('Create an application on subzero')
   .action(() => {
     inquirer.prompt([
       {
@@ -273,5 +274,22 @@ program
       ].concat(adminCreds)).then(answers => createApplication(readToken(), {...answers, db_location: db_location}));
     });
   });
+
+const listApplications = token => {
+  request
+    .get(`${SERVER_URL}/applications`)
+    .set("Authorization", `Bearer ${token}`)
+    .end((err, res) => {
+      if(res.ok)
+        console.log(highlight(JSON.stringify(res.body, null, 4), {language : 'json'}));
+      else
+        console.log("%s".red, res.body.message);
+    });
+}
+
+program
+  .command('list')
+  .description('List your applications on subzero')
+  .action(() => listApplications(readToken()));
 
 program.parse(process.argv);
