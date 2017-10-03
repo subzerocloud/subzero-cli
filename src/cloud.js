@@ -127,10 +127,10 @@ program
   });
 
 
-const createApplication = (token, appConfig) => {
+const createApplication = (token, app) => {
   request
     .post(`${SERVER_URL}/applications`)
-    .send({...appConfig})
+    .send({...app})
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
       if(res.ok)
@@ -178,103 +178,99 @@ program
             value: 'external'
           }
         ]
+      },
+      {
+        type: 'input',
+        name: 'db_admin',
+        message: 'Enter the database administrator account',
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        when: answers => answers.db_location == "container"
+      },
+      {
+        type: 'password',
+        name: 'db_admin_pass',
+        message: 'Enter the database administrator account password',
+        mask: '*',
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        when: answers => answers.db_location == "container"
+      },
+      {
+        type: 'input',
+        name: 'name',
+        message: 'Enter your application name',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'domain',
+        message: 'Enter your domain',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'jwt_secret',
+        message: 'Enter your jwt secret',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'db_host',
+        message: 'Enter the db host',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'db_port',
+        message: 'Enter the db port',
+        validate: val => {
+          if(!notEmptyString(val))
+            return "Cannot be empty";
+          else if(isNaN(val))
+            return "Must be a number";
+          else if(!(1024 < parseInt(val) && parseInt(val) < 65535))
+            return "Must be a valid port number";
+          else
+            return true;
+        }
+      },
+      {
+        type: 'input',
+        name: 'db_name',
+        message: 'Enter the db name',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'db_schema',
+        message: 'Enter the db schema',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'db_authenticator',
+        message: 'Enter the db authenticator role',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'password',
+        name: 'db_authenticator_pass',
+        message: 'Enter the db authenticator role password',
+        mask: '*',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'db_anon_role',
+        message: 'Enter the db anonymous role',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'version',
+        message: 'Enter your application version',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
       }
-    ]).then(answers => {
-      let db_location = answers.db_location,
-          adminCreds = db_location == 'container'?[
-        {
-          type: 'input',
-          name: 'db_admin',
-          message: 'Enter the database administrator account',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'password',
-          name: 'db_admin_pass',
-          message: 'Enter the database administrator account password',
-          mask: '*',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        }
-      ]:[];
-      inquirer.prompt([
-        {
-          type: 'input',
-          name: 'name',
-          message: 'Enter your application name',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'domain',
-          message: 'Enter your domain',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'jwt_secret',
-          message: 'Enter your jwt secret',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'db_host',
-          message: 'Enter the db host',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'db_port',
-          message: 'Enter the db port',
-          validate: val => {
-            if(!notEmptyString(val))
-              return "Cannot be empty";
-            else if(isNaN(val))
-              return "Must be a number";
-            else if(!(1024 < parseInt(val) && parseInt(val) < 65535))
-              return "Must be a valid port number";
-            else
-              return true;
-          }
-        },
-        {
-          type: 'input',
-          name: 'db_name',
-          message: 'Enter the db name',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'db_schema',
-          message: 'Enter the db schema',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'db_authenticator',
-          message: 'Enter the db authenticator role',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'password',
-          name: 'db_authenticator_pass',
-          message: 'Enter the db authenticator role password',
-          mask: '*',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'db_anon_role',
-          message: 'Enter the db anonymous role',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'version',
-          message: 'Enter your application version',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        }
-      ].concat(adminCreds)).then(answers => createApplication(readToken(), {...answers, db_location: db_location}));
-    });
+    ]).then(answers => createApplication(readToken(), answers));
   });
 
 const listApplications = token => {
