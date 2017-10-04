@@ -163,6 +163,7 @@ program
   .command('create')
   .description('Create an application on subzero')
   .action(() => {
+    let token = readToken();
     inquirer.prompt([
       {
         type: 'list',
@@ -207,10 +208,11 @@ program
         validate: val => notEmptyString(val)?true:"Cannot be empty"
       },
       {
-        type: 'input',
+        type: 'password',
         name: 'jwt_secret',
         message: 'Enter your jwt secret',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        mask : '*'
       },
       {
         type: 'input',
@@ -268,7 +270,7 @@ program
         message: 'Enter your application version',
         validate: val => notEmptyString(val)?true:"Cannot be empty"
       }
-    ]).then(answers => createApplication(readToken(), answers));
+    ]).then(answers => createApplication(token, answers));
   });
 
 const listApplications = token => {
@@ -321,6 +323,7 @@ program
   .command('delete')
   .description('Delete a subzero application')
   .action(() => {
+    let token = readToken();
     inquirer.prompt([
       {
         type: 'input',
@@ -336,8 +339,7 @@ program
         }
       }
     ]).then(answers => {
-      let id = answers.id,
-          token = readToken();
+      let id = answers.id;
       getApplication(id, token, app => {
         console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
         if(app.db_location == "container")
@@ -377,6 +379,7 @@ program
   .command('update')
   .description('Update a subzero application')
   .action(() => {
+    let token = readToken();
     inquirer.prompt([
       {
         type: 'input',
@@ -392,8 +395,7 @@ program
         }
       }
     ]).then(answers => {
-      let id = answers.id,
-          token = readToken();
+      let id = answers.id;
       getApplication(id, token, previousApp => {
         inquirer.prompt([
           {
@@ -427,10 +429,11 @@ program
             default: previousApp.domain
           },
           {
-            type: 'input',
+            type: 'password',
             name: 'jwt_secret',
             message: 'Enter the new jwt secret',
-            validate: val => notEmptyString(val)?true:"Cannot be empty"
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            mask: '*'
           },
           {
             type: 'input',
