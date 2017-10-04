@@ -10,6 +10,7 @@ import rimraf from 'rimraf';
 import colors from 'colors';
 import {highlight} from 'cli-highlight';
 import validator from 'validator';
+import {config} from 'dotenv';
 
 const SERVER_URL = "http://localhost:3000";
 
@@ -159,11 +160,24 @@ const readToken = () => {
   }
 }
 
+const loadEnvFile = () => {
+  config({ path: ".env"});
+  return {
+    db_host: process.env.DB_HOST,
+    db_port: process.env.DB_PORT,
+    db_name: process.env.DB_NAME,
+    db_schema: process.env.DB_SCHEMA,
+    db_authenticator: process.env.DB_USER,
+    db_anon_role: process.env.DB_ANON_ROLE
+  };
+}
+
 program
   .command('create')
   .description('Create an application on subzero')
   .action(() => {
-    let token = readToken();
+    let token = readToken(),
+        env = loadEnvFile();
     inquirer.prompt([
       {
         type: 'list',
@@ -218,7 +232,8 @@ program
         type: 'input',
         name: 'db_host',
         message: 'Enter the db host',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        default: env.db_host
       },
       {
         type: 'input',
@@ -231,25 +246,29 @@ program
             return "Must be a valid port number";
           else
             return true;
-        }
+        },
+        default: env.db_port
       },
       {
         type: 'input',
         name: 'db_name',
         message: 'Enter the db name',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        default: env.db_name
       },
       {
         type: 'input',
         name: 'db_schema',
         message: 'Enter the db schema',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        default: env.db_schema
       },
       {
         type: 'input',
         name: 'db_authenticator',
         message: 'Enter the db authenticator role',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        default: env.db_authenticator
       },
       {
         type: 'password',
@@ -262,7 +281,8 @@ program
         type: 'input',
         name: 'db_anon_role',
         message: 'Enter the db anonymous role',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        default: env.db_anon_role
       },
       {
         type: 'input',
