@@ -302,6 +302,21 @@ const deleteApplication = (id, token) => {
     });
 }
 
+const getApplication = (id, token, cb) => {
+  request
+    .get(`${SERVER_URL}/applications?id=eq.${id}`)
+    .set("Authorization", `Bearer ${token}`)
+    .set("Accept", "application/vnd.pgrst.object")
+    .end((err, res) => {
+      if(res.ok)
+        cb(res.body);
+      else if(res.status == 406)
+        console.log("No application with that id exists");
+      else
+        console.log("%s".red, res.body.message);
+    });
+}
+
 program
   .command('delete')
   .description('Delete a subzero application')
@@ -323,31 +338,23 @@ program
     ]).then(answers => {
       let id = answers.id,
           token = readToken();
-      request
-        .get(`${SERVER_URL}/applications?id=eq.${id}`)
-        .set("Authorization", `Bearer ${token}`)
-        .set("Accept", "application/vnd.pgrst.object")
-        .end((err, res) => {
-          if(res.ok){
-            let app = res.body;
-            console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
-            if(app.db_location == "container")
-              console.log("\nWarning: this would also delete the database".yellow);
-            inquirer.prompt([
-              {
-                type: 'confirm',
-                message: "Are you sure you want to delete this application?",
-                name: 'deleteIt'
-              }
-            ]).then(answers => {
-              if(answers.deleteIt)
-                deleteApplication(id, token);
-              else
-                console.log("No application deleted");
-            });
-          }else
-            console.log("%s".red, res.body.message);
+      getApplication(id, token, app => {
+        console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
+        if(app.db_location == "container")
+          console.log("\nWarning: this would also delete the database".yellow);
+        inquirer.prompt([
+          {
+            type: 'confirm',
+            message: "Are you sure you want to delete this application?",
+            name: 'deleteIt'
+          }
+        ]).then(answers => {
+          if(answers.deleteIt)
+            deleteApplication(id, token);
+          else
+            console.log("No application deleted");
         });
+      });
     });
   });
 
@@ -387,117 +394,109 @@ program
     ]).then(answers => {
       let id = answers.id,
           token = readToken();
-      request
-        .get(`${SERVER_URL}/applications?id=eq.${id}`)
-        .set("Authorization", `Bearer ${token}`)
-        .set("Accept", "application/vnd.pgrst.object")
-        .end((err, res) => {
-          if(res.ok){
-            let previousApp = res.body;
-            inquirer.prompt([
-              {
-                type: 'input',
-                name: 'db_admin',
-                message: "Enter the new database administrator account",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                when: () => previousApp.db_location == "container",
-                default: previousApp.db_admin
-              },
-              {
-                type: 'password',
-                name: 'db_admin_pass',
-                message: 'Enter the new database administrator account password',
-                mask: '*',
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                when: () => previousApp.db_location == "container"
-              },
-              {
-                type: 'input',
-                name: 'name',
-                message: "Enter the new application name",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.name
-              },
-              {
-                type: 'input',
-                name: 'domain',
-                message: "Enter the new domain",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.domain
-              },
-              {
-                type: 'input',
-                name: 'jwt_secret',
-                message: 'Enter the new jwt secret',
-                validate: val => notEmptyString(val)?true:"Cannot be empty"
-              },
-              {
-                type: 'input',
-                name: 'db_host',
-                message: "Enter the new db host",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.db_host
-              },
-              {
-                type: 'input',
-                name: 'db_port',
-                message: "Enter the new db port",
-                validate: val => {
-                  if(isNaN(val))
-                    return "Must be a number";
-                  else if(!(1024 < parseInt(val) && parseInt(val) < 65535))
-                    return "Must be a valid port number";
-                  else
-                    return true;
-                },
-                default: previousApp.db_port
-              },
-              {
-                type: 'input',
-                name: 'db_name',
-                message: "Enter the new db name",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.db_name
-              },
-              {
-                type: 'input',
-                name: 'db_schema',
-                message: "Enter the new db schema",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.db_schema
-              },
-              {
-                type: 'input',
-                name: 'db_authenticator',
-                message: "Enter the new db authenticator role",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.db_authenticator
-              },
-              {
-                type: 'password',
-                name: 'db_authenticator_pass',
-                message: 'Enter the new db authenticator role password',
-                mask: '*',
-                validate: val => notEmptyString(val)?true:"Cannot be empty"
-              },
-              {
-                type: 'input',
-                name: 'db_anon_role',
-                message: "Enter the new db anonymous role",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.db_anon_role
-              },
-              {
-                type: 'input',
-                name: 'version',
-                message: "Enter the new application version",
-                validate: val => notEmptyString(val)?true:"Cannot be empty",
-                default: previousApp.version
-              }
-            ]).then(answers => updateApplication(id, token, answers));
-          }else
-            console.log("%s".red, res.body.message);
-        });
+      getApplication(id, token, previousApp => {
+        inquirer.prompt([
+          {
+            type: 'input',
+            name: 'db_admin',
+            message: "Enter the new database administrator account",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            when: () => previousApp.db_location == "container",
+            default: previousApp.db_admin
+          },
+          {
+            type: 'password',
+            name: 'db_admin_pass',
+            message: 'Enter the new database administrator account password',
+            mask: '*',
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            when: () => previousApp.db_location == "container"
+          },
+          {
+            type: 'input',
+            name: 'name',
+            message: "Enter the new application name",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.name
+          },
+          {
+            type: 'input',
+            name: 'domain',
+            message: "Enter the new domain",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.domain
+          },
+          {
+            type: 'input',
+            name: 'jwt_secret',
+            message: 'Enter the new jwt secret',
+            validate: val => notEmptyString(val)?true:"Cannot be empty"
+          },
+          {
+            type: 'input',
+            name: 'db_host',
+            message: "Enter the new db host",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.db_host
+          },
+          {
+            type: 'input',
+            name: 'db_port',
+            message: "Enter the new db port",
+            validate: val => {
+              if(isNaN(val))
+                return "Must be a number";
+              else if(!(1024 < parseInt(val) && parseInt(val) < 65535))
+                return "Must be a valid port number";
+              else
+                return true;
+            },
+            default: previousApp.db_port
+          },
+          {
+            type: 'input',
+            name: 'db_name',
+            message: "Enter the new db name",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.db_name
+          },
+          {
+            type: 'input',
+            name: 'db_schema',
+            message: "Enter the new db schema",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.db_schema
+          },
+          {
+            type: 'input',
+            name: 'db_authenticator',
+            message: "Enter the new db authenticator role",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.db_authenticator
+          },
+          {
+            type: 'password',
+            name: 'db_authenticator_pass',
+            message: 'Enter the new db authenticator role password',
+            mask: '*',
+            validate: val => notEmptyString(val)?true:"Cannot be empty"
+          },
+          {
+            type: 'input',
+            name: 'db_anon_role',
+            message: "Enter the new db anonymous role",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.db_anon_role
+          },
+          {
+            type: 'input',
+            name: 'version',
+            message: "Enter the new application version",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            default: previousApp.version
+          }
+        ]).then(answers => updateApplication(id, token, answers));
+      });
     });
   });
 
