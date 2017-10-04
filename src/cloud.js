@@ -133,10 +133,12 @@ const createApplication = (token, app) => {
     .post(`${SERVER_URL}/applications`)
     .send({...app})
     .set("Authorization", `Bearer ${token}`)
+    .set("Prefer", "return=representation")
+    .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
-      if(res.ok)
-        console.log("App created".green);
-      else
+      if(res.ok){
+        console.log(`Application ${res.body.id} created`.green);
+      } else
         console.log("%s".red, res.body.message);
     });
 }
@@ -290,7 +292,23 @@ program
         message: 'Enter your application version',
         validate: val => notEmptyString(val)?true:"Cannot be empty"
       }
-    ]).then(answers => createApplication(token, answers));
+    ]).then(answers => {
+      let app = answers;
+      console.log("\nThe following application will be created:\n");
+      console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
+      inquirer.prompt([
+        {
+          type: 'confirm',
+          message: "Are you sure you want to create this application?",
+          name: 'createIt'
+        }
+      ]).then(answers => {
+        if(answers.createIt)
+          createApplication(token, app);
+        else
+          console.log("No application was created");
+      });
+    });
   });
 
 const listApplications = token => {
@@ -318,7 +336,7 @@ const deleteApplication = (id, token) => {
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
       if(res.ok)
-        console.log("Application %s deleted", res.body.id);
+        console.log("Application %s deleted".green, res.body.id);
       else
         console.log("%s".red, res.body.message);
     });
@@ -389,7 +407,7 @@ const updateApplication = (id, token, app) => {
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
       if(res.ok)
-        console.log("Application %s updated", res.body.id);
+        console.log("Application %s updated".green, res.body.id);
       else
         console.log("%s".red, res.body.message);
     });
@@ -518,7 +536,23 @@ program
             validate: val => notEmptyString(val)?true:"Cannot be empty",
             default: previousApp.version
           }
-        ]).then(answers => updateApplication(id, token, answers));
+        ]).then(answers => {
+          let app = answers;
+          console.log("\nThese are the new application values:\n");
+          console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
+          inquirer.prompt([
+            {
+              type: 'confirm',
+              message: "Are you sure you want to update this application?",
+              name: 'updateIt'
+            }
+          ]).then(answers => {
+            if(answers.updateIt)
+              updateApplication(id, token, app);
+            else
+              console.log("No application was updated");
+          });
+        });
       });
     });
   });
