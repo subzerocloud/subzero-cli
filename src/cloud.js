@@ -321,7 +321,33 @@ program
         }
       }
     ]).then(answers => {
-      deleteApplication(answers.id, readToken());
+      let id = answers.id,
+          token = readToken();
+      request
+        .get(`${SERVER_URL}/applications?id=eq.${id}`)
+        .set("Authorization", `Bearer ${token}`)
+        .set("Accept", "application/vnd.pgrst.object")
+        .end((err, res) => {
+          if(res.ok){
+            let app = res.body;
+            console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
+            if(app.db_location == "container")
+              console.log("\nWarning: this would also delete the database".yellow);
+            inquirer.prompt([
+              {
+                type: 'confirm',
+                message: "Are you sure you want to delete this application?",
+                name: 'deleteIt'
+              }
+            ]).then(answers => {
+              if(answers.deleteIt)
+                deleteApplication(id, token);
+              else
+                console.log("No application deleted");
+            });
+          }else
+            console.log("%s".red, res.body.message);
+        });
     });
   });
 
