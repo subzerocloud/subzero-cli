@@ -302,7 +302,8 @@ class Dashboard extends Component {
 const screen = blessed.screen({
   autoPadding: true,
   smartCSR: true,
-  title: 'subZero devtools'
+  title: 'subZero devtools',
+  fullUnicode: true
 });
 
 const runDashboard = () => {
