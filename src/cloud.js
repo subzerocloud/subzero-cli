@@ -12,7 +12,7 @@ import {highlight} from 'cli-highlight';
 import validator from 'validator';
 import {config} from 'dotenv';
 
-const SERVER_URL = "http://localhost:3000";
+const SERVER_URL = "https://api.subzero.cloud/rest";
 
 const HOME_DIR = os.homedir();
 const SUBZERO_DIR = `${HOME_DIR}/.subzero`
@@ -130,7 +130,7 @@ program
 
 const createApplication = (token, app) => {
   request
-    .post(`${SERVER_URL}/applications`)
+    .post(`${SERVER_URL}/applications?select=id`)
     .send({...app})
     .set("Authorization", `Bearer ${token}`)
     .set("Prefer", "return=representation")
@@ -235,7 +235,8 @@ program
         name: 'db_host',
         message: 'Enter the db host',
         validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_host
+        default: env.db_host,
+        when: answers => answers.db_location == "external"
       },
       {
         type: 'input',
@@ -249,7 +250,8 @@ program
           else
             return true;
         },
-        default: env.db_port
+        default: env.db_port,
+        when: answers => answers.db_location == "external"
       },
       {
         type: 'input',
@@ -294,8 +296,6 @@ program
       }
     ]).then(answers => {
       let app = answers;
-      console.log("\nThe following application will be created:\n");
-      console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
       inquirer.prompt([
         {
           type: 'confirm',
@@ -306,14 +306,14 @@ program
         if(answers.createIt)
           createApplication(token, app);
         else
-          console.log("No application was created");
+          console.log("No application created");
       });
     });
   });
 
 const listApplications = token => {
   request
-    .get(`${SERVER_URL}/applications`)
+    .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
       if(res.ok)
@@ -344,7 +344,7 @@ const deleteApplication = (id, token) => {
 
 const getApplication = (id, token, cb) => {
   request
-    .get(`${SERVER_URL}/applications?id=eq.${id}`)
+    .get(`${SERVER_URL}/applications?id=eq.${id}&select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
     .set("Authorization", `Bearer ${token}`)
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
@@ -381,7 +381,7 @@ program
       getApplication(id, token, app => {
         console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
         if(app.db_location == "container")
-          console.log("\nWarning: this would also delete the database".yellow);
+          console.log("\nWarning: this will also delete the database".yellow);
         inquirer.prompt([
           {
             type: 'confirm',
@@ -478,7 +478,8 @@ program
             name: 'db_host',
             message: "Enter the new db host",
             validate: val => notEmptyString(val)?true:"Cannot be empty",
-            default: previousApp.db_host
+            default: previousApp.db_host,
+            when: () => previousApp.db_location == "external"
           },
           {
             type: 'input',
@@ -492,7 +493,8 @@ program
               else
                 return true;
             },
-            default: previousApp.db_port
+            default: previousApp.db_port,
+            when: () => previousApp.db_location == "external"
           },
           {
             type: 'input',
@@ -538,8 +540,6 @@ program
           }
         ]).then(answers => {
           let app = answers;
-          console.log("\nThese are the new application values:\n");
-          console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
           inquirer.prompt([
             {
               type: 'confirm',
@@ -550,7 +550,7 @@ program
             if(answers.updateIt)
               updateApplication(id, token, app);
             else
-              console.log("No application was updated");
+              console.log("No application updated");
           });
         });
       });
