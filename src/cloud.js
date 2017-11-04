@@ -11,6 +11,8 @@ import colors from 'colors';
 import {highlight} from 'cli-highlight';
 import validator from 'validator';
 import {config} from 'dotenv';
+import proc from 'child_process';
+import {runCmd} from './common.js';
 
 const SERVER_URL = "https://api.subzero.cloud/rest";
 
@@ -551,6 +553,106 @@ program
               updateApplication(id, token, app);
             else
               console.log("No application updated");
+          });
+        });
+      });
+    });
+  });
+
+const getDockerLogin = (token, cb) => {
+  request
+    .get(`${SERVER_URL}/rpc/get_docker_login`)
+    .set("Authorization", `Bearer ${token}`)
+    .end((err, res) => {
+      if(res.ok){
+        console.log("Logging in to subzero.cloud docker registry..");
+        console.log(proc.execSync(res.text).toString('utf8').green);
+        cb();
+      }else{
+        console.log("%s".red, res.body.message);
+        process.exit(0);
+      }
+    });
+}
+
+const migrationsDeploy = (user, pass, host, port, db) => {
+  try{
+    console.log(proc.execSync(`subzero migrations deploy db:pg://${user}:${pass}@${host}:${port}/${db}`).toString('utf8'));
+  }catch(e){
+    console.log(e.stdout.toString('utf8'));
+    process.exit(0);
+  }
+}
+
+const digSrv = serviceHost => {
+  try{
+    let srv = proc.execSync(`dig +short srv ${serviceHost}`).toString('utf8').trim().split(" ");
+    if(srv.length == 4)
+      return {
+        host : srv[3],
+        port : srv[2]
+      };
+    else{
+      console.log(`Couldn't get SRV record from ${serviceHost}`.red);
+      process.exit(0);
+    }
+  }catch(e){
+    console.log(e.stdout.toString('utf8'));
+    process.exit(0);
+  }
+}
+
+program
+  .command('deploy')
+  .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
+  .action(() => {
+    let token = readToken();
+    inquirer.prompt([
+      {
+        type: 'input',
+        message: "Enter the application id",
+        name: 'id',
+        validate: val => {
+          if(!notEmptyString(val))
+            return "Please enter the application id";
+          else if(!validator.isUUID(val))
+            return "Please enter a valid id";
+          else
+            return true;
+        }
+      }
+    ]).then(answers => {
+      let idToUpdate = answers.id;
+      getApplication(idToUpdate, token, app => {
+        inquirer.prompt([
+          {
+            type: 'input',
+            name: 'db_admin',
+            message: "Enter the database administrator account",
+            validate: val => notEmptyString(val)?true:"Cannot be empty",
+            when: () => app.db_location == "external",
+          },
+          {
+            type: 'password',
+            name: 'db_admin_pass',
+            message: 'Enter the database administrator account password',
+            mask: '*',
+            validate: val => notEmptyString(val)?true:"Cannot be empty"
+          },
+          {
+            type: 'input',
+            name: 'version',
+            message: 'Enter the new version of the application',
+            validate: val => notEmptyString(val)?true:"Cannot be empty"
+          }
+        ]).then(answers => {
+          let {host, port} = digSrv(app.db_service_host);
+          migrationsDeploy(answers.db_admin || app.db_admin, answers.db_admin_pass, host, port, app.db_name);
+          getDockerLogin(token, () => {
+            runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
+            runCmd("docker", ["tag", "openresty", `${app.openresty_repo}:${answers.version}`]);
+            runCmd("docker", ["push", `${app.openresty_repo}:${answers.version}`]);
+            updateApplication(idToUpdate, token, { version: answers.version });
           });
         });
       });

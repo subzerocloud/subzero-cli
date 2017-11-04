@@ -6,6 +6,7 @@ import proc from 'child_process';
 import fs from 'fs';
 import rimraf from 'rimraf';
 import sleep from 'sleep';
+import {runCmd} from './common.js';
 
 import {
     COMPOSE_PROJECT_NAME,
@@ -105,17 +106,6 @@ const addMigration = (name, note, diff) => {
   
 };
 
-const runCmd = (cmd, params, options, silent) => {
-  let p = proc.spawnSync(cmd, params, options);
-  if(silent !== true){
-    p.output.forEach(v => console.log(v ? v.toString() : ""));
-  }
-  if(p.status != 0){
-    process.exit(p.status);
-  }
-
-}
-
 const stopContainer = (name) => {
   runCmd("docker", [ "stop", name ], undefined, true);
   runCmd("docker", [ "rm", name ], undefined, true);
@@ -206,6 +196,8 @@ const apgdiffToFile = (file1, file2, destFile) => {
     console.log(p.stderr.toString());
 };
 
+const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR})
+
 program
   .command('init')
   .description('Setup sqitch config and create the first migration')
@@ -218,6 +210,13 @@ program
   .description('Adds a new sqitch migration')
   .action((name, options) => {
       addMigration(name, options.note, options.diff);
+  });
+
+program
+  .command('deploy <url>')
+  .description('Deploy sqitch migrations to a production database')
+  .action( url => {
+    sqitchDeploy(url);
   });
 
 program.parse(process.argv);
