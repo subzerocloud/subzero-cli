@@ -646,7 +646,12 @@ program
             validate: val => notEmptyString(val)?true:"Cannot be empty"
           }
         ]).then(answers => {
-          let {host, port} = digSrv(app.db_service_host);
+          let {host, port} = (() => {
+            if(app.db_location == 'container')
+              return digSrv(app.db_service_host);
+            else
+              return { host: app.db_host, port: app.db_port };
+          })();
           migrationsDeploy(answers.db_admin || app.db_admin, answers.db_admin_pass, host, port, app.db_name);
           getDockerLogin(token, () => {
             runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
