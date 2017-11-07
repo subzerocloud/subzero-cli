@@ -19,6 +19,7 @@ const SERVER_URL = "https://api.subzero.cloud/rest";
 const HOME_DIR = os.homedir();
 const SUBZERO_DIR = `${HOME_DIR}/.subzero`
 const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
+const SUBZERO_APP_FILE = "./.subzero";
 
 const login = (username, password) => {
   request
@@ -36,8 +37,7 @@ const login = (username, password) => {
 const saveToken = token => {
   if(!dirExists(SUBZERO_DIR))
     fs.mkdirSync(SUBZERO_DIR);
-  fs.writeFileSync(SUBZERO_CREDENTIALS_FILE,
-                   `{ "token": "${token}" }`);
+  fs.writeFileSync(SUBZERO_CREDENTIALS_FILE, `{ "token": "${token}" }`);
 }
 
 program
@@ -130,7 +130,7 @@ program
   });
 
 
-const createApplication = (token, app) => {
+const createApplication = (token, app, cb) => {
   request
     .post(`${SERVER_URL}/applications?select=id`)
     .send({...app})
@@ -139,8 +139,10 @@ const createApplication = (token, app) => {
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
       if(res.ok){
-        console.log(`Application ${res.body.id} created`.green);
-      } else
+        let id = res.body.id;
+        console.log(`Application ${id} created`.green);
+        cb(id);
+      }else
         console.log("%s".red, res.body.message);
     });
 }
@@ -165,7 +167,14 @@ const readToken = () => {
 }
 
 const loadEnvFile = () => {
-  config({ path: ".env"});
+  let path = ".env";
+  if(!fileExists(path)){
+    console.log("Error: ".red + ".env file does not exist");
+    console.log("Please run this program in a directory that contains a subzero project or you can create a base project with " +
+                "`subzero base-project`".white);
+    process.exit(0);
+  }
+  config({ path: path});
   return {
     db_host: process.env.DB_HOST,
     db_port: process.env.DB_PORT,
@@ -306,7 +315,7 @@ program
         }
       ]).then(answers => {
         if(answers.createIt)
-          createApplication(token, app);
+          createApplication(token, app, id => fs.writeFileSync(SUBZERO_APP_FILE, `{ "appId": "${id}" }`));
         else
           console.log("No application created");
       });
