@@ -19,7 +19,7 @@ const SERVER_URL = "https://api.subzero.cloud/rest";
 const HOME_DIR = os.homedir();
 const SUBZERO_DIR = `${HOME_DIR}/.subzero`
 const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
-const SUBZERO_APP_FILE = "./.subzero";
+const SUBZERO_APP_FILE = "./.subzero-app";
 
 const login = (username, password) => {
   request
@@ -166,15 +166,32 @@ const readToken = () => {
   }
 }
 
-const loadEnvFile = () => {
-  let path = ".env";
-  if(!fileExists(path)){
+const saveSubzeroAppId = id => fs.writeFileSync(SUBZERO_APP_FILE, `{ "id": "${id}" }`);
+
+const readSubzeroAppId = () => {
+  if(!fileExists(SUBZERO_APP_FILE)){
+    return null;
+  } else {
+    try {
+      let id = JSON.parse(fs.readFileSync(SUBZERO_APP_FILE, 'utf8')).id;
+      return id;
+    } catch(e) {
+      return null;
+    }
+  }
+}
+
+const checkEnvFile = () => {
+  if(!fileExists(".env")){
     console.log("Error: ".red + ".env file does not exist");
-    console.log("Please run this program in a directory that contains a subzero project or you can create a base project with " +
+    console.log("Please run this command in a directory that contains a subzero project or you can create a base project with " +
                 "`subzero base-project`".white);
     process.exit(0);
   }
-  config({ path: path});
+}
+
+const loadEnvFile = () => {
+  config({ path: ".env"});
   return {
     db_host: process.env.DB_HOST,
     db_port: process.env.DB_PORT,
@@ -189,6 +206,7 @@ program
   .command('create')
   .description('Create an application on subzero')
   .action(() => {
+    checkEnvFile();
     let token = readToken(),
         env = loadEnvFile();
     inquirer.prompt([
@@ -315,7 +333,7 @@ program
         }
       ]).then(answers => {
         if(answers.createIt)
-          createApplication(token, app, id => fs.writeFileSync(SUBZERO_APP_FILE, `{ "appId": "${id}" }`));
+          createApplication(token, app, id => saveSubzeroAppId(id));
         else
           console.log("No application created");
       });
@@ -417,9 +435,9 @@ const updateApplication = (id, token, app) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
-      if(res.ok)
+      if(res.ok){
         console.log("Application %s updated".green, res.body.id);
-      else
+      }else
         console.log("%s".red, res.body.message);
     });
 }
@@ -615,11 +633,13 @@ program
   .command('deploy')
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
   .action(() => {
-    let token = readToken();
+    checkEnvFile();
+    let token = readToken(),
+        appId = readSubzeroAppId();
     inquirer.prompt([
       {
         type: 'input',
-        message: "Enter the application id",
+        message: "Couldn't find a .subzero-app file, please enter the application id",
         name: 'id',
         validate: val => {
           if(!notEmptyString(val))
@@ -628,10 +648,12 @@ program
             return "Please enter a valid id";
           else
             return true;
-        }
+        },
+        when: () => appId == null
       }
     ]).then(answers => {
-      let idToUpdate = answers.id;
+      if(!appId) saveSubzeroAppId(answers.id);
+      let idToUpdate = appId || answers.id;
       getApplication(idToUpdate, token, app => {
         inquirer.prompt([
           {
