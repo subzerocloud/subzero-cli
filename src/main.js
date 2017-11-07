@@ -5,7 +5,7 @@ import program from 'commander';
 import {version} from '../package.json';
 import proc from 'child_process';
 import inquirer from 'inquirer';
-import rimraf from 'rimraf';
+import {runCmd} from './common.js';
 
 program
   .version(version)
@@ -43,16 +43,8 @@ program
 const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
 
 const baseProject = dir => {
-  let p   = proc.spawnSync("git", ["clone", "https://github.com/subzerocloud/postgrest-starter-kit", dir]),
-      out = p.stdout.toString(),
-      err = p.stderr.toString();
-  rimraf.sync(`${dir}/.git/`);
-  if(err){
-    console.log(err);
-    process.exit(1);
-  } else {
-    console.log(out);
-  }
+  runCmd("git", ["clone", "https://github.com/subzerocloud/postgrest-starter-kit", dir]);
+  runCmd("git", ["--git-dir", `${dir}/.git`, "remote", "rename", "origin", "upstream"]);
 }
 
 program.parse(process.argv);
