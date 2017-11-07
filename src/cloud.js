@@ -12,7 +12,7 @@ import {highlight} from 'cli-highlight';
 import validator from 'validator';
 import {config} from 'dotenv';
 import proc from 'child_process';
-import {runCmd} from './common.js';
+import {runCmd, fileExists, dirExists} from './common.js';
 
 const SERVER_URL = "https://api.subzero.cloud/rest";
 
@@ -34,7 +34,7 @@ const login = (username, password) => {
 }
 
 const saveToken = token => {
-  if(!fs.existsSync(SUBZERO_DIR))
+  if(!dirExists(SUBZERO_DIR))
     fs.mkdirSync(SUBZERO_DIR);
   fs.writeFileSync(SUBZERO_CREDENTIALS_FILE,
                    `{ "token": "${token}" }`);
@@ -78,7 +78,7 @@ program
 const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
 
 const logout = () => {
-  if(fs.existsSync(SUBZERO_DIR)){
+  if(dirExists(SUBZERO_DIR)){
     rimraf.sync(SUBZERO_DIR);
     console.log("Removing subzero credentials");
   }else
@@ -146,7 +146,7 @@ const createApplication = (token, app) => {
 }
 
 const readToken = () => {
-  if (!fs.existsSync(SUBZERO_CREDENTIALS_FILE) || !fs.statSync(SUBZERO_CREDENTIALS_FILE).isFile()){
+  if(!fileExists(SUBZERO_CREDENTIALS_FILE)){
     console.log("Error: ".red + "You need to be logged in to make this operation, please run " + "'subzero cloud login'".white);
     process.exit(0);
   } else {

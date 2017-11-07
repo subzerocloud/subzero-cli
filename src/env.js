@@ -1,6 +1,7 @@
 import {dirname,resolve} from 'path';
 import {config} from 'dotenv';
 import fs from 'fs';
+import {fileExists} from './common.js';
 
 
 let cfg = {
@@ -8,7 +9,7 @@ let cfg = {
   path: '.env'
 };
 
-if (!fs.existsSync(cfg.path) || !fs.statSync(cfg.path).isFile()) {
+if (!fileExists(cfg.path)) {
   console.log("\x1b[31mError:\x1b[0m .env file does not exist");
   console.log("Please run this program in the project root directory");
   process.exit(0);

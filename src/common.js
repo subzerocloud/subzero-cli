@@ -1,4 +1,5 @@
 import proc from 'child_process';
+import fs from 'fs';
 
 export const runCmd = (cmd, params, options, silent) => {
   let p = proc.spawnSync(cmd, params, options);
@@ -9,3 +10,7 @@ export const runCmd = (cmd, params, options, silent) => {
     process.exit(p.status);
   }
 }
+
+export const fileExists = path => fs.existsSync(path) && fs.statSync(path).isFile();
+
+export const dirExists = path => fs.existsSync(path) && fs.statSync(path).isDirectory();
