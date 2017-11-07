@@ -5,6 +5,7 @@ import program from 'commander';
 import {version} from '../package.json';
 import proc from 'child_process';
 import inquirer from 'inquirer';
+import rimraf from 'rimraf';
 
 program
   .version(version)
@@ -45,6 +46,7 @@ const baseProject = dir => {
   let p   = proc.spawnSync("git", ["clone", "https://github.com/subzerocloud/postgrest-starter-kit", dir]),
       out = p.stdout.toString(),
       err = p.stderr.toString();
+  rimraf.sync(`${dir}/.git/`);
   if(err){
     console.log(err);
     process.exit(1);
