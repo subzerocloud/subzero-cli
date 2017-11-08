@@ -196,8 +196,6 @@ const apgdiffToFile = (file1, file2, destFile) => {
     console.log(p.stderr.toString());
 };
 
-const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR})
-
 program
   .command('init')
   .description('Setup sqitch config and create the first migration')
@@ -212,9 +210,11 @@ program
       addMigration(name, options.note, options.diff);
   });
 
+const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR})
+
 program
   .command('deploy <url>')
-  .description('Deploy sqitch migrations to a production database')
+  .description('Deploy sqitch migrations to a production database, url must have the `db:pg://${user}:${pass}@${host}:${port}/${db}` format')
   .action( url => {
     sqitchDeploy(url);
   });

@@ -6,6 +6,7 @@ import {version} from '../package.json';
 import proc from 'child_process';
 import inquirer from 'inquirer';
 import {runCmd} from './common.js';
+import colors from 'colors';
 
 program
   .version(version)
@@ -45,6 +46,10 @@ const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
 const baseProject = dir => {
   runCmd("git", ["clone", "https://github.com/subzerocloud/postgrest-starter-kit", dir]);
   runCmd("git", ["--git-dir", `${dir}/.git`, "remote", "rename", "origin", "upstream"]);
+  console.log("\nYou can now do:\n");
+  console.log("git remote add origin <your git repo url here>".white);
+  console.log("git push -u origin master".white);
+  console.log("");
 }
 
 program.parse(process.argv);
