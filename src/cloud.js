@@ -568,8 +568,7 @@ const descriptions = {
 
 const printAppWithDescription = app => {
   let rows = [];
-  Object.keys(app).filter( x => ["id", "name", "db_location"].includes(x))
-                  .map( x => rows.push([ x, app[x], descriptions[x]]));
+  Object.keys(app).map( x => rows.push([ x, app[x], descriptions[x]]));
   let table = new Table([
       { value: "Property" },
       { value: "Value", width: 80},
