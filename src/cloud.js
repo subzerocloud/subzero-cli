@@ -12,7 +12,7 @@ import {highlight} from 'cli-highlight';
 import validator from 'validator';
 import {config} from 'dotenv';
 import proc from 'child_process';
-import {runCmd, fileExists, dirExists} from './common.js';
+import {runCmd, fileExists, dirExists, notEmptyString} from './common.js';
 import Table from 'tty-table';
 
 const SERVER_URL = "https://api.subzero.cloud/rest";
@@ -74,9 +74,6 @@ program
         login(username, password);
     }
   });
-
-// options.key returns bool if a value is not specified(e.g. subzero service login -u -p, options.{username,password} gives true), so make sure is a string
-const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
 
 const logout = () => {
   if(dirExists(SUBZERO_DIR)){

@@ -5,7 +5,7 @@ import program from 'commander';
 import {version} from '../package.json';
 import proc from 'child_process';
 import inquirer from 'inquirer';
-import {runCmd} from './common.js';
+import {runCmd, notEmptyString} from './common.js';
 import colors from 'colors';
 
 program
@@ -40,8 +40,6 @@ program
       }
     ]).then(answers => baseProject(answers.dir));
   });
-
-const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
 
 const baseProject = dir => {
   runCmd("git", ["clone", "https://github.com/subzerocloud/postgrest-starter-kit", dir]);

@@ -14,3 +14,6 @@ export const runCmd = (cmd, params, options, silent) => {
 export const fileExists = path => fs.existsSync(path) && fs.statSync(path).isFile();
 
 export const dirExists = path => fs.existsSync(path) && fs.statSync(path).isDirectory();
+
+// options.key from commander returns bool if a value is not specified(e.g. subzero cloud login -u, options.username gives true), so make sure is a string
+export const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
