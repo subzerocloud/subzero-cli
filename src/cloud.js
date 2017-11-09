@@ -171,13 +171,19 @@ const saveSubzeroAppId = id => fs.writeFileSync(SUBZERO_APP_FILE, `{ "id": "${id
 
 const readSubzeroAppId = () => {
   if(!fileExists(SUBZERO_APP_FILE)){
-    return null;
+    console.log("Error: ".red + "Couldn't find a .subzero-app file, did you create an application with `subzero cloud create`?");
+    process.exit(0);
   } else {
     try {
       let id = JSON.parse(fs.readFileSync(SUBZERO_APP_FILE, 'utf8')).id;
-      return id;
+      if(!id){
+        console.log("Error: ".red + "No 'id' key in .subzero-app");
+        process.exit(0);
+      }else
+        return id;
     } catch(e) {
-      return null;
+      console.log("Error: ".red + "Invalid json in .subzero-app");
+      process.exit(0);
     }
   }
 }
@@ -514,60 +520,41 @@ program
     checkEnvFile();
     let token = readToken(),
         appId = readSubzeroAppId();
-    inquirer.prompt([
-      {
-        type: 'input',
-        message: "Couldn't find a .subzero-app file, please enter the application id",
-        name: 'id',
-        validate: val => {
-          if(!notEmptyString(val))
-            return "Please enter the application id";
-          else if(!validator.isUUID(val))
-            return "Please enter a valid id";
-          else
-            return true;
+    getApplication(appId, token, app => {
+      inquirer.prompt([
+        {
+          type: 'input',
+          name: 'db_admin',
+          message: "Enter the database administrator account",
+          validate: val => notEmptyString(val)?true:"Cannot be empty",
+          when: () => app.db_location == "external",
         },
-        when: () => appId == null
-      }
-    ]).then(answers => {
-      if(!appId) saveSubzeroAppId(answers.id);
-      let idToUpdate = appId || answers.id;
-      getApplication(idToUpdate, token, app => {
-        inquirer.prompt([
-          {
-            type: 'input',
-            name: 'db_admin',
-            message: "Enter the database administrator account",
-            validate: val => notEmptyString(val)?true:"Cannot be empty",
-            when: () => app.db_location == "external",
-          },
-          {
-            type: 'password',
-            name: 'db_admin_pass',
-            message: 'Enter the database administrator account password',
-            mask: '*',
-            validate: val => notEmptyString(val)?true:"Cannot be empty"
-          },
-          {
-            type: 'input',
-            name: 'version',
-            message: 'Enter the new version of the application',
-            validate: val => notEmptyString(val)?true:"Cannot be empty"
-          }
-        ]).then(answers => {
-          getDockerLogin(token, () => {
-            runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
-            runCmd("docker", ["tag", "openresty", `${app.openresty_repo}:${answers.version}`]);
-            runCmd("docker", ["push", `${app.openresty_repo}:${answers.version}`]);
-            let {host, port} = (() => {
-              if(app.db_location == 'container')
-                return digSrv(app.db_service_host);
-              else
-                return { host: app.db_host, port: app.db_port };
-            })();
-            migrationsDeploy(answers.db_admin || app.db_admin, answers.db_admin_pass, host, port, app.db_name);
-            updateApplication(idToUpdate, token, { version: answers.version });
-          });
+        {
+          type: 'password',
+          name: 'db_admin_pass',
+          message: 'Enter the database administrator account password',
+          mask: '*',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        },
+        {
+          type: 'input',
+          name: 'version',
+          message: 'Enter the new version of the application',
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        }
+      ]).then(answers => {
+        getDockerLogin(token, () => {
+          runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
+          runCmd("docker", ["tag", "openresty", `${app.openresty_repo}:${answers.version}`]);
+          runCmd("docker", ["push", `${app.openresty_repo}:${answers.version}`]);
+          let {host, port} = (() => {
+            if(app.db_location == 'container')
+              return digSrv(app.db_service_host);
+            else
+              return { host: app.db_host, port: app.db_port };
+          })();
+          migrationsDeploy(answers.db_admin || app.db_admin, answers.db_admin_pass, host, port, app.db_name);
+          updateApplication(appId, token, { version: answers.version });
         });
       });
     });
