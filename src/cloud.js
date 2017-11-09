@@ -573,4 +573,34 @@ program
     });
   });
 
+const descriptions = {
+  "id": "The subzero id of the application",
+  "name": "The name you gave to your application",
+  "db_location": "container: hosted by subzero, external: you are hosting the db yourself"
+};
+
+const printAppWithDescription = app => {
+  let rows = [];
+  Object.keys(app).filter( x => ["id", "name", "db_location"].includes(x))
+                  .map( x => rows.push([ x, app[x], descriptions[x]]));
+  let table = new Table([
+      { value: "Property" },
+      { value: "Value", width: 80},
+      { value: "Description", width: 20 }
+  ], rows, { defaultValue: ""});
+  console.log(table.render().toString());
+}
+
+program
+  .command('status')
+  .description('Show status and properties of a subzero application')
+  .action(() => {
+    checkEnvFile();
+    let token = readToken(),
+        id = readSubzeroAppId();
+    getApplication(id, token, app => {
+      printAppWithDescription(app);
+    });
+  });
+
 program.parse(process.argv);
