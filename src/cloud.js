@@ -13,6 +13,7 @@ import validator from 'validator';
 import {config} from 'dotenv';
 import proc from 'child_process';
 import {runCmd, fileExists, dirExists} from './common.js';
+import Table from 'tty-table';
 
 const SERVER_URL = "https://api.subzero.cloud/rest";
 
@@ -340,22 +341,34 @@ program
     });
   });
 
-const listApplications = token => {
+const listApplications = (token, cb) => {
   request
     .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
-      if(res.ok)
-        console.log(highlight(JSON.stringify(res.body, null, 4), {language : 'json'}));
-      else
+      if(res.ok){
+        cb(res.body);
+      }else
         console.log("%s".red, res.body.message);
     });
+}
+
+const printApps = apps => {
+  let rows = [];
+  apps.map(x => rows.push([x.name, x.id]));
+  let table = new Table([
+    { value: "Name"},
+    { value: "Id", width: 40}
+  ], rows);
+  console.log(table.render().toString());
 }
 
 program
   .command('list')
   .description('List your applications on subzero')
-  .action(() => listApplications(readToken()));
+  .action(() => listApplications(readToken(), apps => {
+    printApps(apps);
+  }));
 
 const deleteApplication = (id, token) => {
   request
@@ -386,6 +399,15 @@ const getApplication = (id, token, cb) => {
     });
 }
 
+const printApp = app => {
+  let rows = [];
+  Object.keys(app).map( x => rows.push([x, app[x]]));
+  let table = new Table([
+      { value: "Property" },
+      { value: "Value", width: 80}
+  ], rows, { defaultValue: ""});
+  console.log(table.render().toString());
+}
 program
   .command('delete')
   .description('Delete a subzero application')
@@ -408,7 +430,7 @@ program
     ]).then(answers => {
       let id = answers.id;
       getApplication(id, token, app => {
-        console.log(highlight(JSON.stringify(app, null, 4), {language : 'json'}));
+        printApp(app);
         if(app.db_location == "container")
           console.log("\nWarning: this will also delete the database".yellow);
         inquirer.prompt([

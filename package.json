@@ -30,7 +30,8 @@
     "inquirer": "3.3.0",
     "superagent": "3.6.0",
     "colors": "1.1.2",
-    "validator": "9.0.0"
+    "validator": "9.0.0",
+    "tty-table": "2.5.5"
   },
   "devDependencies": {
     "babel-cli": "^6.6.4",
