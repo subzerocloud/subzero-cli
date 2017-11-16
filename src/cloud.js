@@ -12,7 +12,7 @@ import {highlight} from 'cli-highlight';
 import validator from 'validator';
 import {config} from 'dotenv';
 import proc from 'child_process';
-import {runCmd, fileExists, dirExists, notEmptyString} from './common.js';
+import {runCmd, fileExists, dirExists, notEmptyString, checkIsAppDir} from './common.js';
 import Table from 'tty-table';
 
 const SERVER_URL = "https://api.subzero.cloud/rest";
@@ -129,6 +129,7 @@ program
 
 
 const createApplication = (token, app, cb) => {
+  app.version = 'v0.0.0';
   request
     .post(`${SERVER_URL}/applications?select=id`)
     .send({...app})
@@ -185,15 +186,8 @@ const readSubzeroAppId = () => {
   }
 }
 
-const checkEnvFile = () => {
-  if(!fileExists(".env")){
-    console.log("Error: ".red + ".env file does not exist");
-    console.log("Please run this command in a directory that contains a subzero project or you can create a base project with " +
-                "`subzero base-project`".white);
-    process.exit(0);
-  }
-}
 
+// TODO! the info in in env contants
 const loadEnvFile = () => {
   config({ path: ".env"});
   return {
@@ -202,7 +196,8 @@ const loadEnvFile = () => {
     db_name: process.env.DB_NAME,
     db_schema: process.env.DB_SCHEMA,
     db_authenticator: process.env.DB_USER,
-    db_anon_role: process.env.DB_ANON_ROLE
+    db_anon_role: process.env.DB_ANON_ROLE,
+    db_admin: process.env.SUPER_USER,
   };
 }
 
@@ -210,21 +205,33 @@ program
   .command('create')
   .description('Create an application on subzero')
   .action(() => {
-    checkEnvFile();
+    checkIsAppDir();
     let token = readToken(),
         env = loadEnvFile();
     inquirer.prompt([
+      {
+        type: 'input',
+        name: 'name',
+        message: 'Enter your application name',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'input',
+        name: 'domain',
+        message: 'Enter your domain (ex: myapp.subzero.cloud)',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
       {
         type: 'list',
         name: 'db_location',
         message: "Would you like subzero to create a database for you?",
         choices: [
           {
-            name: 'Yes',
+            name: 'Yes (db running in container, for light use)',
             value: 'container'
           },
           {
-            name: "No, I'll provide my own database",
+            name: "No, I'll provide my own database (recommened RDS in us-east-1)",
             value: 'external'
           }
         ]
@@ -234,6 +241,7 @@ program
         name: 'db_admin',
         message: 'Enter the database administrator account',
         validate: val => notEmptyString(val)?true:"Cannot be empty",
+        default: env.db_admin,
         when: answers => answers.db_location == "container"
       },
       {
@@ -244,18 +252,7 @@ program
         validate: val => notEmptyString(val)?true:"Cannot be empty",
         when: answers => answers.db_location == "container"
       },
-      {
-        type: 'input',
-        name: 'name',
-        message: 'Enter your application name',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
-      },
-      {
-        type: 'input',
-        name: 'domain',
-        message: 'Enter your domain',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
-      },
+      
       {
         type: 'password',
         name: 'jwt_secret',
@@ -320,12 +317,6 @@ program
         message: 'Enter the db anonymous role',
         validate: val => notEmptyString(val)?true:"Cannot be empty",
         default: env.db_anon_role
-      },
-      {
-        type: 'input',
-        name: 'version',
-        message: 'Enter your application version',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
       }
     ]).then(answers => {
       let app = answers;
@@ -514,7 +505,7 @@ program
   .command('deploy')
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
   .action(() => {
-    checkEnvFile();
+    checkIsAppDir();
     let token = readToken(),
         appId = readSubzeroAppId();
     getApplication(appId, token, app => {
@@ -536,7 +527,7 @@ program
         {
           type: 'input',
           name: 'version',
-          message: 'Enter the new version of the application',
+          message: 'Enter the new version of the application (ex: v0.1.0)',
           validate: val => notEmptyString(val)?true:"Cannot be empty"
         }
       ]).then(answers => {
@@ -578,7 +569,7 @@ program
   .command('status')
   .description('Show status and properties of a subzero application')
   .action(() => {
-    checkEnvFile();
+    checkIsAppDir();
     let token = readToken(),
         id = readSubzeroAppId();
     getApplication(id, token, app => {

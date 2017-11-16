@@ -9,15 +9,13 @@ let cfg = {
   path: '.env'
 };
 
-if (!(fs.existsSync(cfg.path) && fs.statSync(cfg.path).isFile())) {
-  console.log("\x1b[31mError:\x1b[0m .env file does not exist");
-  console.log("Please run this program in the project root directory");
-  process.exit(0);
+if (fs.existsSync(cfg.path) && fs.statSync(cfg.path).isFile()) {
+  config(cfg);//.env file vars added to process.env
+  process.env.ENV_FILE = resolve(cfg.path)
+  process.env.APP_DIR = dirname(process.env.ENV_FILE);
 }
 
-config(cfg);//.env file vars added to process.env
-process.env.ENV_FILE = resolve(cfg.path)
-process.env.APP_DIR = dirname(process.env.ENV_FILE);
+
 
 export const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
 export const APP_DIR = process.env.APP_DIR;

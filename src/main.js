@@ -34,13 +34,13 @@ program
     inquirer.prompt([
       {
         type: 'input',
-        message: "Enter the dirrectory path where you want to create the project",
+        message: "Enter the directory path where you want to create the project",
         name: 'dir',
         default: '.',
         validate: val => notEmptyString(val)?true:"Please enter a dir"
       },
       {
-        type: 'input',
+        type: 'list',
         name: 'repo',
         message: 'Choose the starter kit',
         choices: [
@@ -54,7 +54,7 @@ program
           }
         ]
       }
-    ]).then(answers => baseProject(answers.dir));
+    ]).then(answers => baseProject(answers.dir, answers.repo));
   });
 
 const baseProject = (dir, repo) => {

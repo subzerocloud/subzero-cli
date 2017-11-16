@@ -27,7 +27,7 @@
     "commander": "2.10.0",
     "rimraf": "2.6.1",
     "sleep": "5.1.1",
-    "inquirer": "3.3.0",
+    "inquirer": "4.0.0",
     "superagent": "3.6.0",
     "colors": "1.1.2",
     "validator": "9.0.0",

@@ -199,7 +199,7 @@ const apgdiffToFile = (file1, file2, destFile) => {
   if(USE_DOCKER_IMAGE && [SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD].indexOf(cmd) !== -1){
     //alter the command to run in docker
     let w = (options && options.cwd) ? options.cwd.replace(APP_DIR, DOCKER_APP_DIR) : DOCKER_APP_DIR;
-    params = ['run', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
+    params = ['run', '--rm', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
       .concat(params.map(p => p.replace(APP_DIR, DOCKER_APP_DIR)));
     cmd = 'docker';
   }
@@ -213,7 +213,7 @@ const apgdiffToFile = (file1, file2, destFile) => {
 program
   .command('init')
   .description('Setup sqitch config and create the first migration')
-  .action(() => initMigrations());
+  .action(() => { checkIsAppDir(); initMigrations();});
 
 program
   .command('add <name>')
@@ -221,6 +221,7 @@ program
   .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
   .description('Adds a new sqitch migration')
   .action((name, options) => {
+      checkIsAppDir();
       addMigration(name, options.note, options.diff);
   });
 
@@ -230,6 +231,7 @@ program
   .command('deploy <url>')
   .description('Deploy sqitch migrations to a production database, url must have the `db:pg://${user}:${pass}@${host}:${port}/${db}` format')
   .action( url => {
+    checkIsAppDir();
     sqitchDeploy(url);
   });
 

@@ -20,31 +20,9 @@ After installing, executing the command in the root of your project will give yo
 
 ## Install
 
-### Dependencies
-These dependencies are only used for `migrations` command, you can skip/postpone this if you use just the `dashboard` subcommand.
-
-Follow [sqitch](http://sqitch.org/) install instructions for your system.
-
-```bash
-# example for mac
-brew tap theory/sqitch
-brew install sqitch
-```
-
-Download a patched version of [apgdiff](https://github.com/subzerocloud/apgdiff) and set the env var used by `subzero-cli` to find it
-
-```bash
-wget -O ~/apgdiff-2.5-subzero.jar \
-  https://github.com/subzerocloud/apgdiff/releases/download/2.5.2-subzero/apgdiff-2.5.2-subzero.jar
-
-echo "export APGDIFF_JAR_PATH=~/apgdiff-2.5-subzero.jar" >> ~/.bash_profile
-export APGDIFF_JAR_PATH=~/apgdiff-2.5-subzero.jar
-```
-
-
-### cli
 Use `npm` to install the subzero developer tools
 ```bash
+  docker pull subzerocloud/subzero-cli-tools
   npm install -g subzero-cli
   # check it was installed
   subzero --help
@@ -65,7 +43,7 @@ This will create a command available in your PATH called ```subzero```.
 To rebuild and recreate the command do:
 
 ```bash
-  npm run build && npm unlink subzero & npm link
+  npm run build && npm unlink subzero && npm link
 ```
 
 

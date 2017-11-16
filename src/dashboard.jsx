@@ -25,6 +25,7 @@ import {
     LOG_LENGTH,
     PSQL_CMD
 } from './env.js';
+import {checkIsAppDir} from './common.js';
 
 
 const DB_DIR = APP_DIR + "/db/src/";
@@ -307,6 +308,7 @@ const screen = blessed.screen({
 });
 
 const runDashboard = () => {
+  checkIsAppDir();
   const container_list = proc.execSync('docker ps -a -f name=${COMPOSE_PROJECT_NAME} --format "{{.Names}}"').toString('utf8').trim().split("\n");
   const containers = container_list.reduce( ( acc, containerName ) => {
     let key = containerName.replace(COMPOSE_PROJECT_NAME,'').replace('1','').replace(/_/g,'');

@@ -1,6 +1,6 @@
 import proc from 'child_process';
 import fs from 'fs';
-
+import colors from 'colors';
 
 import {
   APP_DIR,
@@ -17,7 +17,7 @@ export const runCmd = (cmd, params, options, silent) => {
   if(USE_DOCKER_IMAGE && [SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD].indexOf(cmd) !== -1){
     //alter the command to run in docker
     let w = (options && options.cwd) ? options.cwd.replace(APP_DIR, DOCKER_APP_DIR) : DOCKER_APP_DIR;
-    params = ['run', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
+    params = ['run', '--rm', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
       .concat(params.map(p => p.replace(APP_DIR, DOCKER_APP_DIR)));
     cmd = 'docker';
   }
@@ -36,3 +36,12 @@ export const dirExists = path => fs.existsSync(path) && fs.statSync(path).isDire
 
 // options.key from commander returns bool if a value is not specified(e.g. subzero cloud login -u, options.username gives true), so make sure is a string
 export const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
+
+export const checkIsAppDir = () => {
+  if(!fileExists(`.env`)){
+    console.log("Error: ".red + ".env file does not exist");
+    console.log("Please run this command in a directory that contains a subzero project or you can create a base project with " +
+                "`subzero base-project`".white);
+    process.exit(0);
+  }
+}
