@@ -22,10 +22,10 @@ const SUBZERO_DIR = `${HOME_DIR}/.subzero`
 const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
 const SUBZERO_APP_FILE = "./.subzero-app";
 
-const login = (username, password) => {
+const login = (email, password) => {
   request
     .post(`${SERVER_URL}/rpc/login`)
-    .send({"email": username, "password": password})
+    .send({"email": email, "password": password})
     .end((err, res) => {
       if(res.ok){
         saveToken(res.body[0].token);
@@ -43,19 +43,19 @@ const saveToken = token => {
 
 program
   .command('login')
-  .option("-u, --username [username]", "Your username")
+  .option("-e, --email [email]", "Your email")
   .option("-p, --password [password]", "Your password")
   .description('Login to subzero')
   .action(options => {
-    const username = options.username;
+    const email = options.email;
     const password = options.password;
-    if(!username && !password)
+    if(!email && !password)
       inquirer.prompt([
         {
           type: 'input',
-          message: "Enter your username",
-          name: 'username',
-          validate: val => notEmptyString(val)?true:"Please enter your username"
+          message: "Enter your email",
+          name: 'email',
+          validate: val => notEmptyString(val)?true:"Please enter your email"
         },
         {
           type: 'password',
@@ -64,14 +64,14 @@ program
           mask: '*',
           validate: val => notEmptyString(val)?true:"Please enter your password"
         }
-      ]).then(answers => login(answers.username, answers.password));
+      ]).then(answers => login(answers.email, answers.password));
     else{
-      if(!notEmptyString(username))
-        console.log("username: cannot be empty");
+      if(!notEmptyString(email))
+        console.log("email: cannot be empty");
       if(!notEmptyString(password))
         console.log("password: cannot be empty");
-      if(notEmptyString(username) && notEmptyString(password))
-        login(username, password);
+      if(notEmptyString(email) && notEmptyString(password))
+        login(email, password);
     }
   });
 
@@ -85,7 +85,7 @@ const logout = () => {
 
 program
   .command('logout')
-  .description('Logout of subzero')
+  .description('Logout from subzero')
   .action(() => logout());
 
 const signup = (name, email, password) => {

@@ -34,15 +34,31 @@ program
     inquirer.prompt([
       {
         type: 'input',
-        message: "Enter a dir(Use '.' for current dir)",
+        message: "Enter the dirrectory path where you want to create the project",
         name: 'dir',
+        default: '.',
         validate: val => notEmptyString(val)?true:"Please enter a dir"
+      },
+      {
+        type: 'input',
+        name: 'repo',
+        message: 'Choose the starter kit',
+        choices: [
+          {
+            name: 'postgrest-starter-kit (REST)',
+            value: 'https://github.com/subzerocloud/postgrest-starter-kit'
+          },
+          {
+            name: 'subzero-starter-kit (REST & GraphQL)',
+            value: 'https://github.com/subzerocloud/subzero-starter-kit'
+          }
+        ]
       }
     ]).then(answers => baseProject(answers.dir));
   });
 
-const baseProject = dir => {
-  runCmd("git", ["clone", "https://github.com/subzerocloud/postgrest-starter-kit", dir]);
+const baseProject = (dir, repo) => {
+  runCmd("git", ["clone", repo, dir]);
   runCmd("git", ["--git-dir", `${dir}/.git`, "remote", "rename", "origin", "upstream"]);
   console.log("\nYou can now do:\n");
   console.log("git remote add origin <your git repo url here>".white);
