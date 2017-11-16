@@ -21,10 +21,14 @@ import {
     SQITCH_CMD,
     PG_DUMP_CMD,
     PG_DUMPALL_CMD,
+    JAVA_CMD,
     MIGRATIONS_DIR,
     DEV_DB_URI,
     PROD_DB_URI,
-    IGNORE_ROLES
+    IGNORE_ROLES,
+    DOCKER_APP_DIR,
+    DOCKER_IMAGE,
+    USE_DOCKER_IMAGE
 } from './env.js';
 
 const TMP_DIR = `${MIGRATIONS_DIR}/tmp`;
@@ -189,7 +193,17 @@ const dumpSchema = (DB_URI, file) => {
   fs.unlinkSync(`${file}.schema`);
 }
 const apgdiffToFile = (file1, file2, destFile) => {
-  let p = proc.spawnSync('java', ['-jar', APGDIFF_JAR_PATH, '--add-transaction', file1, file2]);
+  let cmd = JAVA_CMD
+  let params = ['-jar', APGDIFF_JAR_PATH, '--add-transaction', file1, file2]
+  let options = {}
+  if(USE_DOCKER_IMAGE && [SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD].indexOf(cmd) !== -1){
+    //alter the command to run in docker
+    let w = (options && options.cwd) ? options.cwd.replace(APP_DIR, DOCKER_APP_DIR) : DOCKER_APP_DIR;
+    params = ['run', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
+      .concat(params.map(p => p.replace(APP_DIR, DOCKER_APP_DIR)));
+    cmd = 'docker';
+  }
+  let p = proc.spawnSync(cmd, params, options);
   if(p.stdout.toString())
     fs.writeFileSync(destFile, p.stdout.toString());
   if(p.stderr.toString())

@@ -23,9 +23,3 @@ deployment:
     owner: subzerocloud
     commands:
       - npm publish
-      # - pkg package.json --out-dir ./bindist/
-      # - mv ./bindist/subzero_devtools-linux ./bindist/subzero_devtools-linux-$CIRCLE_TAG
-      # - mv ./bindist/subzero_devtools-macos ./bindist/subzero_devtools-macos-$CIRCLE_TAG
-      # - mv ./bindist/subzero_devtools-win.exe ./bindist/subzero_devtools-win-$CIRCLE_TAG.exe
-      # - gzip ./bindist/*
-      # - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace $CIRCLE_TAG bindist/

@@ -1,7 +1,7 @@
 import {dirname,resolve} from 'path';
 import {config} from 'dotenv';
 import fs from 'fs';
-import {fileExists} from './common.js';
+// import {fileExists} from './common.js';
 
 
 let cfg = {
@@ -9,7 +9,7 @@ let cfg = {
   path: '.env'
 };
 
-if (!fileExists(cfg.path)) {
+if (!(fs.existsSync(cfg.path) && fs.statSync(cfg.path).isFile())) {
   console.log("\x1b[31mError:\x1b[0m .env file does not exist");
   console.log("Please run this program in the project root directory");
   process.exit(0);
@@ -29,15 +29,19 @@ export const DB_PASS = process.env.DB_PASS;
 export const DB_HOST = process.env.DB_HOST;
 export const DB_NAME = process.env.DB_NAME;
 export const LOG_LENGTH = process.env.LOG_LENGTH || 1000;
-export const APGDIFF_JAR_PATH = process.env.APGDIFF_JAR_PATH || 'apgdiff-2.5-subzero.jar'; 
+export const JAVA_CMD = process.env.JAVA_CMD || 'java'; 
+export const APGDIFF_JAR_PATH = process.env.APGDIFF_JAR_PATH || '/usr/local/bin/apgdiff.jar'; 
 export const SQITCH_CMD = process.env.SQITCH_CMD || 'sqitch'; 
 export const PSQL_CMD = process.env.PSQL_CMD || 'psql';
 export const PG_DUMP_CMD = process.env.PG_DUMP_CMD || 'pg_dump';
 export const PG_DUMPALL_CMD = process.env.PG_DUMP_CMD || 'pg_dumpall';
 export const MIGRATIONS_DIR = `${APP_DIR}/db/migrations`;
-export const DEV_DB_URI = process.env.DEV_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@localhost:5432/${DB_NAME}`
-export const PROD_DB_URI = process.env.PROD_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@localhost:5433/${DB_NAME}`
+const LOCALHOST=process.env.LOCALHOST || 'localhost';
+export const DEV_DB_URI = process.env.DEV_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:5432/${DB_NAME}`
+export const PROD_DB_URI = process.env.PROD_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:5433/${DB_NAME}`
 const _IGNORE_ROLES = process.env.IGNORE_ROLES || `${SUPER_USER}, ${DB_USER}, postgres`
 export const IGNORE_ROLES = _IGNORE_ROLES.split(',').map(s => s.trim());
-
-
+export const DOCKER_APP_DIR = '/src';
+export const DOCKER_IMAGE = process.env.DOCKER_IMAGE || 'subzerocloud/subzero-cli'
+export const USE_DOCKER_IMAGE = process.env.USE_DOCKER_IMAGE || true;
+export const DOCKER_MIGRATIONS_DIR = `${DOCKER_APP_DIR}/db/migrations`;
