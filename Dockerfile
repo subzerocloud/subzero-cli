@@ -11,7 +11,7 @@ RUN echo "installing dependencies" \
     && echo '@edge http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
     && apk update \
     && apk add --no-cache --virtual .build-deps \
-        build-base perl-dev gnupg python curl wget \
+        build-base perl-dev gnupg curl wget \
 
     && apk add --update --no-cache \
         git \
@@ -27,7 +27,6 @@ RUN echo "installing dependencies" \
     && cd /tmp \
     && curl -OSL https://github.com/subzerocloud/apgdiff/releases/download/${APGDIFF_VERSION}-subzero/apgdiff-${APGDIFF_VERSION}-subzero.jar \
     && mv apgdiff-${APGDIFF_VERSION}-subzero.jar /usr/local/bin/apgdiff.jar \
-    && npm install -g subzero-cli \
     
     && apk del .build-deps
 
