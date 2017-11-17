@@ -18,7 +18,7 @@ export const runCmd = (cmd, params, options, silent) => {
   if(USE_DOCKER_IMAGE && [SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD].indexOf(cmd) !== -1){
     //alter the command to run in docker
     let w = (options && options.cwd) ? options.cwd.replace(APP_DIR, DOCKER_APP_DIR) : DOCKER_APP_DIR;
-    params = ['run', '--rm', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
+    params = ['run', '--net', 'host', '--rm', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
       .concat(params.map(p => p.replace(APP_DIR, DOCKER_APP_DIR)));
     cmd = 'docker';
   }
