@@ -1,6 +1,7 @@
 import {dirname,resolve} from 'path';
 import {config} from 'dotenv';
 import fs from 'fs';
+import {networkInterfaces} from 'os';
 // import {fileExists} from './common.js';
 
 
@@ -16,6 +17,22 @@ if (fs.existsSync(cfg.path) && fs.statSync(cfg.path).isFile()) {
 }
 
 
+const getLocalIp = () => {
+  const ifaces = networkInterfaces();
+  let ips = [];
+  console.log(ifaces);
+  Object.keys(ifaces).forEach(function (ifname) {
+    ifaces[ifname].forEach(function (iface) {
+      if ('IPv4' !== iface.family || iface.internal !== false) {
+        // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
+        return;
+      }
+      ips.push(iface.address);
+    });
+  });
+  console.log(`using ${ips[0]} for accessing host services from docker`);
+  return ips[0]; //what to do when there is no ip
+}
 
 export const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
 export const APP_DIR = process.env.APP_DIR;
@@ -36,12 +53,12 @@ export const PSQL_CMD = process.env.PSQL_CMD || 'psql';
 export const PG_DUMP_CMD = process.env.PG_DUMP_CMD || 'pg_dump';
 export const PG_DUMPALL_CMD = process.env.PG_DUMP_CMD || 'pg_dumpall';
 export const MIGRATIONS_DIR = `${APP_DIR}/db/migrations`;
-const LOCALHOST=process.env.LOCALHOST || 'localhost';
+export const USE_DOCKER_IMAGE = process.env.USE_DOCKER_IMAGE || true;
+const LOCALHOST = USE_DOCKER_IMAGE ? getLocalIp() : 'localhost';
 export const DEV_DB_URI = process.env.DEV_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:${DB_PORT}/${DB_NAME}`
 export const PROD_DB_URI = process.env.PROD_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:5433/${DB_NAME}`
 const _IGNORE_ROLES = process.env.IGNORE_ROLES || `${SUPER_USER}, ${DB_USER}, ${DB_ANON_ROLE}, postgres`
 export const IGNORE_ROLES = _IGNORE_ROLES.split(',').map(s => s.trim());
 export const DOCKER_APP_DIR = '/src';
 export const DOCKER_IMAGE = process.env.DOCKER_IMAGE || 'subzerocloud/subzero-cli-tools'
-export const USE_DOCKER_IMAGE = process.env.USE_DOCKER_IMAGE || true;
 export const DOCKER_MIGRATIONS_DIR = `${DOCKER_APP_DIR}/db/migrations`;

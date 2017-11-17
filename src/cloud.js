@@ -12,7 +12,7 @@ import {highlight} from 'cli-highlight';
 import validator from 'validator';
 import {config} from 'dotenv';
 import proc from 'child_process';
-import {runCmd, fileExists, dirExists, notEmptyString, checkIsAppDir} from './common.js';
+import {runCmd, fileExists, dirExists, notEmptyString, checkIsAppDir, sqitchDeploy, checkMigrationsInitiated} from './common.js';
 import Table from 'tty-table';
 
 const SERVER_URL = "https://api.subzero.cloud/rest";
@@ -27,6 +27,10 @@ const login = (email, password) => {
     .post(`${SERVER_URL}/rpc/login`)
     .send({"email": email, "password": password})
     .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
       if(res.ok){
         saveToken(res.body[0].token);
         console.log("Login succeeded".green);
@@ -93,7 +97,11 @@ const signup = (name, email, password) => {
     .post(`${SERVER_URL}/rpc/signup`)
     .send({"name": name, "email": email, "password": password})
   .end((err, res) => {
-    if(res.ok){
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
+      if(res.ok){
         console.log("Account created".green);
       }else
         console.log("%s".red, res.body.message);
@@ -137,6 +145,10 @@ const createApplication = (token, app, cb) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
       if(res.ok){
         let id = res.body.id;
         console.log(`Application ${id} created`.green);
@@ -340,6 +352,10 @@ const listApplications = (token, cb) => {
     .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
       if(res.ok){
         cb(res.body);
       }else
@@ -384,6 +400,10 @@ const getApplication = (id, token, cb) => {
     .set("Authorization", `Bearer ${token}`)
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
       if(res.ok)
         cb(res.body);
       else if(res.status == 406)
@@ -451,6 +471,10 @@ const updateApplication = (id, token, app) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
       if(res.ok){
         console.log("Application %s updated".green, res.body.id);
       }else
@@ -463,6 +487,10 @@ const getDockerLogin = (token, cb) => {
     .get(`${SERVER_URL}/rpc/get_docker_login`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
       if(res.ok){
         console.log("Logging in to subzero.cloud docker registry..");
         console.log(proc.execSync(res.text).toString('utf8').green);
@@ -475,12 +503,7 @@ const getDockerLogin = (token, cb) => {
 }
 
 const migrationsDeploy = (user, pass, host, port, db) => {
-  try{
-    console.log(proc.execSync(`subzero migrations deploy db:pg://${user}:${pass}@${host}:${port}/${db}`).toString('utf8'));
-  }catch(e){
-    console.log(e.stdout.toString('utf8'));
-    process.exit(0);
-  }
+  sqitchDeploy(`db:pg://${user}:${pass}@${host}:${port}/${db}`);
 }
 
 const digSrv = serviceHost => {
@@ -488,7 +511,7 @@ const digSrv = serviceHost => {
     let srv = proc.execSync(`dig +short srv ${serviceHost}`).toString('utf8').trim().split(" ");
     if(srv.length == 4)
       return {
-        host : srv[3],
+        host : srv[3].slice(0, -1),
         port : srv[2]
       };
     else{
@@ -506,6 +529,7 @@ program
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
   .action(() => {
     checkIsAppDir();
+    checkMigrationsInitiated();
     let token = readToken(),
         appId = readSubzeroAppId();
     getApplication(appId, token, app => {
@@ -573,6 +597,11 @@ program
     let token = readToken(),
         id = readSubzeroAppId();
     getApplication(id, token, app => {
+      if(app.db_location === 'container'){
+        let db_host_port = digSrv(app.db_service_host);
+        app.db_host = db_host_port.host;
+        app.db_port = db_host_port.port;
+      }
       printAppWithDescription(app);
     });
   });

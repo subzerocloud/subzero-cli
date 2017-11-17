@@ -6,7 +6,7 @@ import proc from 'child_process';
 import fs from 'fs';
 import rimraf from 'rimraf';
 import sleep from 'sleep';
-import {runCmd} from './common.js';
+import {runCmd, checkIsAppDir, sqitchDeploy, checkMigrationsInitiated} from './common.js';
 
 import {
     COMPOSE_PROJECT_NAME,
@@ -225,13 +225,13 @@ program
       addMigration(name, options.note, options.diff);
   });
 
-const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR})
 
 program
   .command('deploy <url>')
   .description('Deploy sqitch migrations to a production database, url must have the `db:pg://${user}:${pass}@${host}:${port}/${db}` format')
   .action( url => {
     checkIsAppDir();
+    checkMigrationsInitiated();
     sqitchDeploy(url);
   });
 

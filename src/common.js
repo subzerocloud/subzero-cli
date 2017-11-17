@@ -10,6 +10,7 @@ import {
   DOCKER_APP_DIR,
   DOCKER_IMAGE,
   USE_DOCKER_IMAGE,
+  MIGRATIONS_DIR,
   JAVA_CMD
 } from './env.js';
 
@@ -30,6 +31,8 @@ export const runCmd = (cmd, params, options, silent) => {
   }
 }
 
+export const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR})
+
 export const fileExists = path => fs.existsSync(path) && fs.statSync(path).isFile();
 
 export const dirExists = path => fs.existsSync(path) && fs.statSync(path).isDirectory();
@@ -42,6 +45,14 @@ export const checkIsAppDir = () => {
     console.log("Error: ".red + ".env file does not exist");
     console.log("Please run this command in a directory that contains a subzero project or you can create a base project with " +
                 "`subzero base-project`".white);
+    process.exit(0);
+  }
+}
+
+export const checkMigrationsInitiated = () => {
+  if( !(dirExists(MIGRATIONS_DIR) && fileExists(`${MIGRATIONS_DIR}/sqitch.plan`)) ){
+    console.log("Error: ".red + "database migrations not initiated");
+    console.log("Please run `subzero migrations init` before trying to deploy the code");
     process.exit(0);
   }
 }
