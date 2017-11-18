@@ -45,40 +45,6 @@ const saveToken = token => {
   fs.writeFileSync(SUBZERO_CREDENTIALS_FILE, `{ "token": "${token}" }`);
 }
 
-program
-  .command('login')
-  .option("-e, --email [email]", "Your email")
-  .option("-p, --password [password]", "Your password")
-  .description('Login to subzero')
-  .action(options => {
-    const email = options.email;
-    const password = options.password;
-    if(!email && !password)
-      inquirer.prompt([
-        {
-          type: 'input',
-          message: "Enter your email",
-          name: 'email',
-          validate: val => notEmptyString(val)?true:"Please enter your email"
-        },
-        {
-          type: 'password',
-          message: 'Enter your password',
-          name: 'password',
-          mask: '*',
-          validate: val => notEmptyString(val)?true:"Please enter your password"
-        }
-      ]).then(answers => login(answers.email, answers.password));
-    else{
-      if(!notEmptyString(email))
-        console.log("email: cannot be empty");
-      if(!notEmptyString(password))
-        console.log("password: cannot be empty");
-      if(notEmptyString(email) && notEmptyString(password))
-        login(email, password);
-    }
-  });
-
 const logout = () => {
   if(dirExists(SUBZERO_DIR)){
     rimraf.sync(SUBZERO_DIR);
@@ -86,11 +52,6 @@ const logout = () => {
   }else
     console.log("Not logged in to subzero");
 }
-
-program
-  .command('logout')
-  .description('Logout from subzero')
-  .action(() => logout());
 
 const signup = (name, email, password) => {
   request
@@ -107,34 +68,6 @@ const signup = (name, email, password) => {
         console.log("%s".red, res.body.message);
     });
 }
-
-program
-  .command('signup')
-  .description('Create your account on subzero')
-  .action(() => {
-    inquirer.prompt([
-      {
-        type: 'input',
-        message: "Enter your name",
-        name: 'name',
-        validate: val => notEmptyString(val)?true:"Please enter your name"
-      },
-      {
-        type: 'input',
-        message: "Enter your email",
-        name: 'email',
-        validate: val => notEmptyString(val)?true:"Please enter your email"
-      },
-      {
-        type: 'password',
-        message: 'Enter your password',
-        name: 'password',
-        mask: '*',
-        validate: val => notEmptyString(val)?true:"Please enter your password"
-      }
-    ]).then(answers => signup(answers.name, answers.email, answers.password));
-  });
-
 
 const createApplication = (token, app, cb) => {
   app.version = 'v0.0.0';
@@ -198,7 +131,6 @@ const readSubzeroAppId = () => {
   }
 }
 
-
 // TODO! the info in in env contants
 const loadEnvFile = () => {
   config({ path: ".env"});
@@ -213,8 +145,218 @@ const loadEnvFile = () => {
   };
 }
 
-program
-  .command('create')
+const listApplications = (token, cb) => {
+  request
+    .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
+    .set("Authorization", `Bearer ${token}`)
+    .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
+      if(res.ok){
+        cb(res.body);
+      }else
+        console.log("%s".red, res.body.message);
+    });
+}
+
+const printApps = apps => {
+  let rows = [];
+  apps.map(x => rows.push([x.name, x.id]));
+  let table = new Table([
+    { value: "Name"},
+    { value: "Id", width: 40}
+  ], rows);
+  console.log(table.render().toString());
+}
+
+const deleteApplication = (id, token) => {
+  request
+    .delete(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
+    .set("Authorization", `Bearer ${token}`)
+    .set("Prefer", "return=representation")
+    .set("Accept", "application/vnd.pgrst.object")
+    .end((err, res) => {
+      if(res.ok)
+        console.log("Application %s deleted".green, res.body.id);
+      else
+        console.log("%s".red, res.body.message);
+    });
+}
+
+const getApplication = (id, token, cb) => {
+  request
+    .get(`${SERVER_URL}/applications?id=eq.${id}&select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
+    .set("Authorization", `Bearer ${token}`)
+    .set("Accept", "application/vnd.pgrst.object")
+    .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
+      if(res.ok)
+        cb(res.body);
+      else if(res.status == 406)
+        console.log("No application with that id exists");
+      else
+        console.log("%s".red, res.body.message);
+    });
+}
+
+const printApp = app => {
+  let rows = [];
+  Object.keys(app).map( x => rows.push([x, app[x]]));
+  let table = new Table([
+      { value: "Property" },
+      { value: "Value", width: 80}
+  ], rows, { defaultValue: ""});
+  console.log(table.render().toString());
+}
+
+const updateApplication = (id, token, app) => {
+  request
+    .patch(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
+    .send({...app})
+    .set("Authorization", `Bearer ${token}`)
+    .set("Prefer", "return=representation")
+    .set("Accept", "application/vnd.pgrst.object")
+    .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
+      if(res.ok){
+        console.log("Application %s updated".green, res.body.id);
+      }else
+        console.log("%s".red, res.body.message);
+    });
+}
+
+const getDockerLogin = (token, cb) => {
+  request
+    .get(`${SERVER_URL}/rpc/get_docker_login`)
+    .set("Authorization", `Bearer ${token}`)
+    .end((err, res) => {
+      if(err){
+        console.log("%s".red, err.toString());
+        return;
+      }
+      if(res.ok){
+        console.log("Logging in to subzero.cloud docker registry..");
+        console.log(proc.execSync(res.text).toString('utf8').green);
+        cb();
+      }else{
+        console.log("%s".red, res.body.message);
+        process.exit(0);
+      }
+    });
+}
+
+const migrationsDeploy = (user, pass, host, port, db) => {
+  sqitchDeploy(`db:pg://${user}:${pass}@${host}:${port}/${db}`);
+}
+
+const digSrv = serviceHost => {
+  try{
+    let srv = proc.execSync(`dig +short srv ${serviceHost}`).toString('utf8').trim().split(" ");
+    if(srv.length == 4)
+      return {
+        host : srv[3].slice(0, -1),
+        port : srv[2]
+      };
+    else{
+      console.log(`Couldn't get SRV record from ${serviceHost}`.red);
+      process.exit(0);
+    }
+  }catch(e){
+    console.log(e.stdout.toString('utf8'));
+    process.exit(0);
+  }
+}
+
+const descriptions = {
+  "id": "The subzero id of the application",
+  "name": "The name you gave to your application",
+  "db_location": "container: hosted by subzero, external: you are hosting the db yourself"
+};
+
+const printAppWithDescription = app => {
+  let rows = [];
+  Object.keys(app).map( x => rows.push([ x, app[x] + "\n\n" + (descriptions[x]||'')]));
+  let table = new Table([
+      { value: "Property", align: 'left' },
+      { value: "Value", width: 80, align: 'left'}
+  ], rows, { defaultValue: ""});
+  console.log(table.render().toString());
+}
+
+program.command('signup')
+  .description('Create your account on subzero')
+  .action(() => {
+    inquirer.prompt([
+      {
+        type: 'input',
+        message: "Enter your name",
+        name: 'name',
+        validate: val => notEmptyString(val)?true:"Please enter your name"
+      },
+      {
+        type: 'input',
+        message: "Enter your email",
+        name: 'email',
+        validate: val => notEmptyString(val)?true:"Please enter your email"
+      },
+      {
+        type: 'password',
+        message: 'Enter your password',
+        name: 'password',
+        mask: '*',
+        validate: val => notEmptyString(val)?true:"Please enter your password"
+      }
+    ]).then(answers => signup(answers.name, answers.email, answers.password));
+  });
+program .command('login')
+  .option("-e, --email [email]", "Your email")
+  .option("-p, --password [password]", "Your password")
+  .description('Login to subzero')
+  .action(options => {
+    const email = options.email;
+    const password = options.password;
+    if(!email && !password)
+      inquirer.prompt([
+        {
+          type: 'input',
+          message: "Enter your email",
+          name: 'email',
+          validate: val => notEmptyString(val)?true:"Please enter your email"
+        },
+        {
+          type: 'password',
+          message: 'Enter your password',
+          name: 'password',
+          mask: '*',
+          validate: val => notEmptyString(val)?true:"Please enter your password"
+        }
+      ]).then(answers => login(answers.email, answers.password));
+    else{
+      if(!notEmptyString(email))
+        console.log("email: cannot be empty");
+      if(!notEmptyString(password))
+        console.log("password: cannot be empty");
+      if(notEmptyString(email) && notEmptyString(password))
+        login(email, password);
+    }
+  });
+program.command('logout')
+  .description('Logout from subzero')
+  .action(() => logout());
+program.command('list')
+  .description('List your applications on subzero')
+  .action(() => listApplications(readToken(), apps => {
+    printApps(apps);
+  }));
+program.command('app-create')
   .description('Create an application on subzero')
   .action(() => {
     checkIsAppDir();
@@ -346,87 +488,33 @@ program
       });
     });
   });
-
-const listApplications = (token, cb) => {
-  request
-    .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
-    .set("Authorization", `Bearer ${token}`)
-    .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
-      if(res.ok){
-        cb(res.body);
-      }else
-        console.log("%s".red, res.body.message);
-    });
-}
-
-const printApps = apps => {
-  let rows = [];
-  apps.map(x => rows.push([x.name, x.id]));
-  let table = new Table([
-    { value: "Name"},
-    { value: "Id", width: 40}
-  ], rows);
-  console.log(table.render().toString());
-}
-
-program
-  .command('list')
-  .description('List your applications on subzero')
-  .action(() => listApplications(readToken(), apps => {
-    printApps(apps);
-  }));
-
-const deleteApplication = (id, token) => {
-  request
-    .delete(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
-    .set("Authorization", `Bearer ${token}`)
-    .set("Prefer", "return=representation")
-    .set("Accept", "application/vnd.pgrst.object")
-    .end((err, res) => {
-      if(res.ok)
-        console.log("Application %s deleted".green, res.body.id);
-      else
-        console.log("%s".red, res.body.message);
-    });
-}
-
-const getApplication = (id, token, cb) => {
-  request
-    .get(`${SERVER_URL}/applications?id=eq.${id}&select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
-    .set("Authorization", `Bearer ${token}`)
-    .set("Accept", "application/vnd.pgrst.object")
-    .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
-      if(res.ok)
-        cb(res.body);
-      else if(res.status == 406)
-        console.log("No application with that id exists");
-      else
-        console.log("%s".red, res.body.message);
-    });
-}
-
-const printApp = app => {
-  let rows = [];
-  Object.keys(app).map( x => rows.push([x, app[x]]));
-  let table = new Table([
-      { value: "Property" },
-      { value: "Value", width: 80}
-  ], rows, { defaultValue: ""});
-  console.log(table.render().toString());
-}
-program
-  .command('delete')
+program.command('app-delete')
   .description('Delete a subzero application')
   .action(() => {
-    let token = readToken();
+    checkIsAppDir();
+    let token = readToken(),
+        id = readSubzeroAppId();
+    
+    getApplication(id, token, app => {
+      printApp(app);
+      if(app.db_location == "container")
+        console.log("\nWarning: this will also delete the database".yellow);
+      inquirer.prompt([
+        {
+          type: 'confirm',
+          message: "Are you sure you want to delete this application?",
+          name: 'deleteIt'
+        }
+      ]).then(answers => {
+        if(answers.deleteIt){
+          deleteApplication(id, token);
+          fs.unlinkSync(SUBZERO_APP_FILE);
+        }
+        else{
+          console.log("No application deleted");
+        }
+      });
+    });
     inquirer.prompt([
       {
         type: 'input',
@@ -443,89 +531,10 @@ program
       }
     ]).then(answers => {
       let id = answers.id;
-      getApplication(id, token, app => {
-        printApp(app);
-        if(app.db_location == "container")
-          console.log("\nWarning: this will also delete the database".yellow);
-        inquirer.prompt([
-          {
-            type: 'confirm',
-            message: "Are you sure you want to delete this application?",
-            name: 'deleteIt'
-          }
-        ]).then(answers => {
-          if(answers.deleteIt)
-            deleteApplication(id, token);
-          else
-            console.log("No application deleted");
-        });
-      });
+      
     });
   });
-
-const updateApplication = (id, token, app) => {
-  request
-    .patch(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
-    .send({...app})
-    .set("Authorization", `Bearer ${token}`)
-    .set("Prefer", "return=representation")
-    .set("Accept", "application/vnd.pgrst.object")
-    .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
-      if(res.ok){
-        console.log("Application %s updated".green, res.body.id);
-      }else
-        console.log("%s".red, res.body.message);
-    });
-}
-
-const getDockerLogin = (token, cb) => {
-  request
-    .get(`${SERVER_URL}/rpc/get_docker_login`)
-    .set("Authorization", `Bearer ${token}`)
-    .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
-      if(res.ok){
-        console.log("Logging in to subzero.cloud docker registry..");
-        console.log(proc.execSync(res.text).toString('utf8').green);
-        cb();
-      }else{
-        console.log("%s".red, res.body.message);
-        process.exit(0);
-      }
-    });
-}
-
-const migrationsDeploy = (user, pass, host, port, db) => {
-  sqitchDeploy(`db:pg://${user}:${pass}@${host}:${port}/${db}`);
-}
-
-const digSrv = serviceHost => {
-  try{
-    let srv = proc.execSync(`dig +short srv ${serviceHost}`).toString('utf8').trim().split(" ");
-    if(srv.length == 4)
-      return {
-        host : srv[3].slice(0, -1),
-        port : srv[2]
-      };
-    else{
-      console.log(`Couldn't get SRV record from ${serviceHost}`.red);
-      process.exit(0);
-    }
-  }catch(e){
-    console.log(e.stdout.toString('utf8'));
-    process.exit(0);
-  }
-}
-
-program
-  .command('deploy')
+program.command('app-deploy')
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
   .action(() => {
     checkIsAppDir();
@@ -572,25 +581,7 @@ program
     });
   });
 
-const descriptions = {
-  "id": "The subzero id of the application",
-  "name": "The name you gave to your application",
-  "db_location": "container: hosted by subzero, external: you are hosting the db yourself"
-};
-
-const printAppWithDescription = app => {
-  let rows = [];
-  Object.keys(app).map( x => rows.push([ x, app[x], descriptions[x]]));
-  let table = new Table([
-      { value: "Property" },
-      { value: "Value", width: 80},
-      { value: "Description", width: 20 }
-  ], rows, { defaultValue: ""});
-  console.log(table.render().toString());
-}
-
-program
-  .command('status')
+program.command('app-status')
   .description('Show status and properties of a subzero application')
   .action(() => {
     checkIsAppDir();
@@ -605,5 +596,4 @@ program
       printAppWithDescription(app);
     });
   });
-
 program.parse(process.argv);
