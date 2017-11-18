@@ -163,11 +163,12 @@ const listApplications = (token, cb) => {
 
 const printApps = apps => {
   let rows = [];
-  apps.map(x => rows.push([x.name, x.id]));
+  apps.map(x => rows.push([x.id, x.name, x.domain]));
   let table = new Table([
-    { value: "Name"},
-    { value: "Id", width: 40}
-  ], rows);
+    { value: "Id", width: 40, align: 'left', headerAlign: 'left' },
+    { value: "Name", width: 40, align: 'left', headerAlign: 'left'},
+    { value: "Domain", width: 40, align: 'left', headerAlign: 'left'}
+  ], rows, {borderStyle: 0, compact: true});
   console.log(table.render().toString());
 }
 
@@ -283,11 +284,11 @@ const descriptions = {
 
 const printAppWithDescription = app => {
   let rows = [];
-  Object.keys(app).map( x => rows.push([ x, app[x] + "\n\n" + (descriptions[x]||'')]));
+  Object.keys(app).map( x => rows.push([ x, app[x] + "\n" + (descriptions[x]||'')]));
   let table = new Table([
-      { value: "Property", align: 'left' },
-      { value: "Value", width: 80, align: 'left'}
-  ], rows, { defaultValue: ""});
+      { value: "Property", align: 'left', headerAlign: 'left' },
+      { value: "Value", width: 80, align: 'left', headerAlign: 'left'}
+  ], rows, { defaultValue: "", borderStyle: 0, compact: true});
   console.log(table.render().toString());
 }
 
