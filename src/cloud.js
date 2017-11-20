@@ -53,10 +53,10 @@ const logout = () => {
     console.log("Not logged in to subzero");
 }
 
-const signup = (name, email, password) => {
+const signup = (name, email, password, invite) => {
   request
     .post(`${SERVER_URL}/rpc/signup`)
-    .send({"name": name, "email": email, "password": password})
+    .send({"name": name, "email": email, "password": password, "invite": invite})
   .end((err, res) => {
       if(err){
         console.log("%s".red, err.toString());
@@ -298,6 +298,12 @@ program.command('signup')
     inquirer.prompt([
       {
         type: 'input',
+        message: "Enter your invite code",
+        name: 'invite',
+        validate: val => notEmptyString(val)?true:"Please enter your invite code"
+      },
+      {
+        type: 'input',
         message: "Enter your name",
         name: 'name',
         validate: val => notEmptyString(val)?true:"Please enter your name"
@@ -315,7 +321,7 @@ program.command('signup')
         mask: '*',
         validate: val => notEmptyString(val)?true:"Please enter your password"
       }
-    ]).then(answers => signup(answers.name, answers.email, answers.password));
+    ]).then(answers => signup(answers.name, answers.email, answers.password, answers.invite));
   });
 program .command('login')
   .option("-e, --email [email]", "Your email")
