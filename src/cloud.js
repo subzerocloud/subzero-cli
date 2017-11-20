@@ -205,16 +205,6 @@ const getApplication = (id, token, cb) => {
     });
 }
 
-const printApp = app => {
-  let rows = [];
-  Object.keys(app).map( x => rows.push([x, app[x]]));
-  let table = new Table([
-      { value: "Property" },
-      { value: "Value", width: 80}
-  ], rows, { defaultValue: ""});
-  console.log(table.render().toString());
-}
-
 const updateApplication = (id, token, app) => {
   request
     .patch(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
@@ -284,6 +274,11 @@ const descriptions = {
 
 const printAppWithDescription = app => {
   let rows = [];
+  if(app.db_location === 'container'){
+    let db_host_port = digSrv(app.db_service_host);
+    app.db_host = db_host_port.host;
+    app.db_port = db_host_port.port;
+  }
   Object.keys(app).map( x => rows.push([ x, app[x] + "\n" + (descriptions[x]||'')]));
   let table = new Table([
       { value: "Property", align: 'left', headerAlign: 'left' },
@@ -503,7 +498,7 @@ program.command('app-delete')
         id = readSubzeroAppId();
     
     getApplication(id, token, app => {
-      printApp(app);
+      printAppWithDescription(app);
       if(app.db_location == "container")
         console.log("\nWarning: this will also delete the database".yellow);
       inquirer.prompt([
@@ -521,24 +516,6 @@ program.command('app-delete')
           console.log("No application deleted");
         }
       });
-    });
-    inquirer.prompt([
-      {
-        type: 'input',
-        message: "Enter the application id",
-        name: 'id',
-        validate: val => {
-          if(!notEmptyString(val))
-            return "Please enter the application id";
-          else if(!validator.isUUID(val))
-            return "Please enter a valid id";
-          else
-            return true;
-        }
-      }
-    ]).then(answers => {
-      let id = answers.id;
-      
     });
   });
 program.command('app-deploy')
@@ -595,11 +572,6 @@ program.command('app-status')
     let token = readToken(),
         id = readSubzeroAppId();
     getApplication(id, token, app => {
-      if(app.db_location === 'container'){
-        let db_host_port = digSrv(app.db_service_host);
-        app.db_host = db_host_port.host;
-        app.db_port = db_host_port.port;
-      }
       printAppWithDescription(app);
     });
   });
