@@ -375,7 +375,7 @@ program.command('app-create')
         type: 'input',
         name: 'domain',
         message: 'Enter your domain (ex: myapp.subzero.cloud)',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => validator.isFQDN(val)?true:"Must be valid domain name"
       },
       {
         type: 'list',
