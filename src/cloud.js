@@ -412,8 +412,16 @@ program.command('app-create')
       {
         type: 'password',
         name: 'jwt_secret',
-        message: 'Enter your jwt secret',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        message: 'Enter your jwt secret (32 chars minimum)',
+        validate: val => {
+          if(notEmptyString(val)){
+            if(val.length >= 32)
+              return true;
+            else
+              return "Must be 32 chars minimum";
+          }else
+            return "Cannot be empty";
+        },
         mask : '*'
       },
       {
