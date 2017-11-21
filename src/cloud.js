@@ -291,7 +291,7 @@ program.command('signup')
         type: 'input',
         message: "Enter your invite code",
         name: 'invite',
-        validate: val => notEmptyString(val)?true:"Please enter your invite code"
+        validate: val => validator.isUUID(val)?true:"Please enter a valid invite code"
       },
       {
         type: 'input',
@@ -303,7 +303,7 @@ program.command('signup')
         type: 'input',
         message: "Enter your email",
         name: 'email',
-        validate: val => notEmptyString(val)?true:"Please enter your email"
+        validate: val => validator.isEmail(val)?true:"Please enter a valid email"
       },
       {
         type: 'password',
