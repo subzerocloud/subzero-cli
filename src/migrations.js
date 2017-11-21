@@ -31,24 +31,26 @@ import {
     USE_DOCKER_IMAGE
 } from './env.js';
 
-const TMP_DIR = `${MIGRATIONS_DIR}/tmp`;
+const TMP_DIR = `${APP_DIR}/tmp`;
 const INITIAL_FILE_NAME = "initial";
 const SQITCH_CONF = `${MIGRATIONS_DIR}/sqitch.conf`;
 const MIGRATION_NUMBER_FILE = `${MIGRATIONS_DIR}/.migration_number`;
 
 const initMigrations = () => {
+
   if (fs.existsSync(MIGRATIONS_DIR)) {
     console.log(`Migrations directory already exists: ${MIGRATIONS_DIR}`);
     process.exit(0);
   }
 
-  fs.mkdirSync(MIGRATIONS_DIR);
   if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
-  fs.writeFileSync(MIGRATION_NUMBER_FILE, '1');
-  const migrationNumber = padNumber(getMigrationNumber(), 10);
-  
+
   dumpSchema(DEV_DB_URI, `${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`);
   fs.closeSync(fs.openSync(`${TMP_DIR}/prod-${INITIAL_FILE_NAME}.sql`, 'w'));
+
+  fs.mkdirSync(MIGRATIONS_DIR);
+  fs.writeFileSync(MIGRATION_NUMBER_FILE, '1');
+  const migrationNumber = padNumber(getMigrationNumber(), 10);
 
   initSqitch();
 
