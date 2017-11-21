@@ -357,6 +357,10 @@ program.command('list')
 program.command('app-create')
   .description('Create an application on subzero')
   .action(() => {
+    if(fileExists(SUBZERO_APP_FILE)){
+      console.log("Error: ".red + "There is a .subzero-app file already in place for this project");
+      process.exit(0);
+    }
     checkIsAppDir();
     let token = readToken(),
         env = loadEnvFile();
