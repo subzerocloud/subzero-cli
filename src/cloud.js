@@ -399,12 +399,19 @@ program.command('app-create')
       {
         type: 'password',
         name: 'db_admin_pass',
-        message: 'Enter the database administrator account password',
+        message: 'Enter the database administrator account password(8 chars minimum)',
         mask: '*',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        validate: val => {
+          if(notEmptyString(val)){
+            if(val.length >= 8)
+              return true;
+            else
+              return "Must be 8 chars minimum";
+          }else
+            return "Cannot be empty";
+        },
         when: answers => answers.db_location == "container"
       },
-      
       {
         type: 'password',
         name: 'jwt_secret',
@@ -467,9 +474,17 @@ program.command('app-create')
       {
         type: 'password',
         name: 'db_authenticator_pass',
-        message: 'Enter the db authenticator role password',
+        message: 'Enter the db authenticator role password(8 chars minimum)',
         mask: '*',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => {
+          if(notEmptyString(val)){
+            if(val.length >= 8)
+              return true;
+            else
+              return "Must be 8 chars minimum";
+          }else
+            return "Cannot be empty";
+        }
       },
       {
         type: 'input',
