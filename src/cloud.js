@@ -505,7 +505,8 @@ program.command('app-delete')
         {
           type: 'confirm',
           message: "Are you sure you want to delete this application?",
-          name: 'deleteIt'
+          name: 'deleteIt',
+          default: false
         }
       ]).then(answers => {
         if(answers.deleteIt){
