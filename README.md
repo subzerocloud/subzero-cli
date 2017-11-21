@@ -6,7 +6,7 @@ This tool is meant to be used with the Docker based starter kits for [PostgREST]
 After installing, executing the command in the root of your project will give you this interface.
 
 
-![subzero-cli](https://github.com/subzerocloud/postgrest-starter-kit/blob/master/media/postgrest-starter-kit.gif?raw=true "subzero-cli")
+![subzero-cli](https://raw.githubusercontent.com/wiki/subzerocloud/postgrest-starter-kit/images/postgrest-starter-kit.gif "subzero-cli")
 
 
 ## Features
