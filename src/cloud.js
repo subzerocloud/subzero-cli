@@ -78,10 +78,6 @@ const createApplication = (token, app, cb) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
       if(res.ok){
         let id = res.body.id;
         console.log(`Application ${id} created`.green);
