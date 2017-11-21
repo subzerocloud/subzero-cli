@@ -1,5 +1,6 @@
 import proc from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import colors from 'colors';
 
 import {
@@ -20,6 +21,10 @@ export const runCmd = (cmd, params, options, silent) => {
     let w = (options && options.cwd) ? options.cwd.replace(APP_DIR, DOCKER_APP_DIR) : DOCKER_APP_DIR;
     params = ['run', '--net', 'host', '--rm', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
       .concat(params.map(p => p.replace(APP_DIR, DOCKER_APP_DIR)));
+    if(os.platform() == 'linux'){
+      let {uid, gid} = os.userInfo();
+      params.splice(8, 0, '-u', `${uid}:${gid}`, '--env', "USERNAME=root");
+    }
     cmd = 'docker';
   }
   let p = proc.spawnSync(cmd, params, options);

@@ -522,9 +522,9 @@ program.command('app-deploy')
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
   .action(() => {
     checkIsAppDir();
-    checkMigrationsInitiated();
     let token = readToken(),
         appId = readSubzeroAppId();
+    checkMigrationsInitiated();
     getApplication(appId, token, app => {
       inquirer.prompt([
         {
