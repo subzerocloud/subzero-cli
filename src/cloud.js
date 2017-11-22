@@ -29,6 +29,7 @@ const login = (email, password) => {
     .post(`${SERVER_URL}/rpc/login`)
     .send({"email": email, "password": password})
     .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok){
         saveToken(res.body[0].token);
         console.log("Login succeeded".green);
@@ -56,6 +57,7 @@ const signup = (name, email, password, invite) => {
     .post(`${SERVER_URL}/rpc/signup`)
     .send({"name": name, "email": email, "password": password, "invite": invite})
   .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok){
         console.log("Account created".green);
       }else
@@ -72,6 +74,7 @@ const createApplication = (token, app, cb) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok){
         let id = res.body.id;
         console.log(`Application ${id} created`.green);
@@ -142,6 +145,7 @@ const listApplications = (token, cb) => {
     .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok)
         cb(res.body);
       else if(res.status == 401)
@@ -169,6 +173,7 @@ const deleteApplication = (id, token) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok)
         console.log("Application %s deleted".green, res.body.id);
       else if(res.status == 401)
@@ -184,6 +189,7 @@ const getApplication = (id, token, cb) => {
     .set("Authorization", `Bearer ${token}`)
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok)
         cb(res.body);
       else if(res.status == 406)
@@ -203,6 +209,7 @@ const updateApplication = (id, token, app) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok)
         console.log("Application %s updated".green, res.body.id);
       else if(res.status == 401)
@@ -217,6 +224,7 @@ const getDockerLogin = (token, cb) => {
     .get(`${SERVER_URL}/rpc/get_docker_login`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok){
         console.log("Logging in to subzero.cloud docker registry..");
         console.log(proc.execSync(res.text).toString('utf8').green);
