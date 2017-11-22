@@ -34,11 +34,6 @@ const WATCH_PATTERNS =
         ? process.env.WATCH_PATTERNS.split(',').map(p => APP_DIR + '/' + p)
         : [APP_DIR +'/db/src/**/*.sql', APP_DIR + '/openresty/lualib/**/*.lua', APP_DIR +'/openresty/nginx/conf/**/*.conf']
 const TITLES = {
-  openresty: 'OpenResty',
-  postgrest: 'PostgREST',
-  db: 'PostgreSQL',
-  rabbitmq: 'RabbitMQ',
-  pgamqpbridge: 'pg-amqp-bridge'
 }
 
 const decoder = new StringDecoder('utf8');
@@ -312,11 +307,12 @@ const runDashboard = () => {
   const container_list = proc.execSync('docker ps -a -f name=${COMPOSE_PROJECT_NAME} --format "{{.Names}}"').toString('utf8').trim().split("\n");
   const containers = container_list.reduce( ( acc, containerName ) => {
     let key = containerName.replace(COMPOSE_PROJECT_NAME,'').replace('1','').replace(/_/g,'');
-    if (TITLES[key]) {
-      acc[key] = {
-        name: containerName,
-        title: TITLES[key]
-      }
+    if (!TITLES[key]) {
+      TITLES[key] = containerName.replace(COMPOSE_PROJECT_NAME+'_','').replace(/_1$/,'');
+    }
+    acc[key] = {
+      name: containerName,
+      title: TITLES[key]
     }
     return acc
   }, {});
