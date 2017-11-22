@@ -22,15 +22,13 @@ const SUBZERO_DIR = `${HOME_DIR}/.subzero`
 const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
 const SUBZERO_APP_FILE = "./.subzero-app";
 
+const JWT_EXPIRED_ERROR = "JWT Expired".red + ", please login again with " + "`subzero cloud login`".white;
+
 const login = (email, password) => {
   request
     .post(`${SERVER_URL}/rpc/login`)
     .send({"email": email, "password": password})
     .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
       if(res.ok){
         saveToken(res.body[0].token);
         console.log("Login succeeded".green);
@@ -58,10 +56,6 @@ const signup = (name, email, password, invite) => {
     .post(`${SERVER_URL}/rpc/signup`)
     .send({"name": name, "email": email, "password": password, "invite": invite})
   .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
       if(res.ok){
         console.log("Account created".green);
       }else
@@ -78,15 +72,13 @@ const createApplication = (token, app, cb) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
       if(res.ok){
         let id = res.body.id;
         console.log(`Application ${id} created`.green);
         cb(id);
-      }else
+      }else if(res.status == 401)
+        console.log(JWT_EXPIRED_ERROR);
+      else
         console.log("%s".red, res.body.message);
     });
 }
@@ -150,13 +142,11 @@ const listApplications = (token, cb) => {
     .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
-      if(res.ok){
+      if(res.ok)
         cb(res.body);
-      }else
+      else if(res.status == 401)
+        console.log(JWT_EXPIRED_ERROR);
+      else
         console.log("%s".red, res.body.message);
     });
 }
@@ -181,6 +171,8 @@ const deleteApplication = (id, token) => {
     .end((err, res) => {
       if(res.ok)
         console.log("Application %s deleted".green, res.body.id);
+      else if(res.status == 401)
+        console.log(JWT_EXPIRED_ERROR);
       else
         console.log("%s".red, res.body.message);
     });
@@ -192,14 +184,12 @@ const getApplication = (id, token, cb) => {
     .set("Authorization", `Bearer ${token}`)
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
       if(res.ok)
         cb(res.body);
       else if(res.status == 406)
         console.log("No application with that id exists");
+      else if(res.status == 401)
+        console.log(JWT_EXPIRED_ERROR);
       else
         console.log("%s".red, res.body.message);
     });
@@ -213,13 +203,11 @@ const updateApplication = (id, token, app) => {
     .set("Prefer", "return=representation")
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
-      if(res.ok){
+      if(res.ok)
         console.log("Application %s updated".green, res.body.id);
-      }else
+      else if(res.status == 401)
+        console.log(JWT_EXPIRED_ERROR);
+      else
         console.log("%s".red, res.body.message);
     });
 }
@@ -229,10 +217,6 @@ const getDockerLogin = (token, cb) => {
     .get(`${SERVER_URL}/rpc/get_docker_login`)
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
-      if(err){
-        console.log("%s".red, err.toString());
-        return;
-      }
       if(res.ok){
         console.log("Logging in to subzero.cloud docker registry..");
         console.log(proc.execSync(res.text).toString('utf8').green);
@@ -295,7 +279,7 @@ program.command('signup')
         type: 'input',
         message: "Enter your invite code",
         name: 'invite',
-        validate: val => notEmptyString(val)?true:"Please enter your invite code"
+        validate: val => validator.isUUID(val)?true:"Please enter a valid invite code"
       },
       {
         type: 'input',
@@ -307,7 +291,7 @@ program.command('signup')
         type: 'input',
         message: "Enter your email",
         name: 'email',
-        validate: val => notEmptyString(val)?true:"Please enter your email"
+        validate: val => validator.isEmail(val)?true:"Please enter a valid email"
       },
       {
         type: 'password',
@@ -361,6 +345,10 @@ program.command('list')
 program.command('app-create')
   .description('Create an application on subzero')
   .action(() => {
+    if(fileExists(SUBZERO_APP_FILE)){
+      console.log("Error: ".red + "There is a .subzero-app file already in place for this project");
+      process.exit(0);
+    }
     checkIsAppDir();
     let token = readToken(),
         env = loadEnvFile();
@@ -375,7 +363,7 @@ program.command('app-create')
         type: 'input',
         name: 'domain',
         message: 'Enter your domain (ex: myapp.subzero.cloud)',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => validator.isFQDN(val)?true:"Must be valid domain name"
       },
       {
         type: 'list',
@@ -403,17 +391,32 @@ program.command('app-create')
       {
         type: 'password',
         name: 'db_admin_pass',
-        message: 'Enter the database administrator account password',
+        message: 'Enter the database administrator account password(8 chars minimum)',
         mask: '*',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        validate: val => {
+          if(notEmptyString(val)){
+            if(val.length >= 8)
+              return true;
+            else
+              return "Must be 8 chars minimum";
+          }else
+            return "Cannot be empty";
+        },
         when: answers => answers.db_location == "container"
       },
-      
       {
         type: 'password',
         name: 'jwt_secret',
-        message: 'Enter your jwt secret',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        message: 'Enter your jwt secret (32 chars minimum)',
+        validate: val => {
+          if(notEmptyString(val)){
+            if(val.length >= 32)
+              return true;
+            else
+              return "Must be 32 chars minimum";
+          }else
+            return "Cannot be empty";
+        },
         mask : '*'
       },
       {
@@ -463,9 +466,17 @@ program.command('app-create')
       {
         type: 'password',
         name: 'db_authenticator_pass',
-        message: 'Enter the db authenticator role password',
+        message: 'Enter the db authenticator role password(8 chars minimum)',
         mask: '*',
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
+        validate: val => {
+          if(notEmptyString(val)){
+            if(val.length >= 8)
+              return true;
+            else
+              return "Must be 8 chars minimum";
+          }else
+            return "Cannot be empty";
+        }
       },
       {
         type: 'input',
@@ -505,7 +516,8 @@ program.command('app-delete')
         {
           type: 'confirm',
           message: "Are you sure you want to delete this application?",
-          name: 'deleteIt'
+          name: 'deleteIt',
+          default: false
         }
       ]).then(answers => {
         if(answers.deleteIt){
