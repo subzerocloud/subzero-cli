@@ -59,10 +59,9 @@ const initMigrations = () => {
   apgdiffToFile(`${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`,
                 `${TMP_DIR}/prod-${INITIAL_FILE_NAME}.sql`,
                 `${MIGRATIONS_DIR}/revert/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
+
+  console.log(`Copying ${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql to ${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
   runCmd('cp', [`${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`]);
-  // apgdiffToFile(`${TMP_DIR}/prod-${INITIAL_FILE_NAME}.sql`,
-  //               `${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`,
-  //               `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
 
   incrementMigrationNumber();
   rimraf.sync(TMP_DIR);
@@ -94,7 +93,6 @@ const addMigration = (name, note, diff) => {
   addSqitchMigration(`${migrationNumber}-${name}`, note);
 
   if( diff ){
-    console.log('Diffing sql files')
     apgdiffToFile(`${TMP_DIR}/dev-${name}.sql`,
                   `${TMP_DIR}/prod-${name}.sql`,
                   `${MIGRATIONS_DIR}/revert/${migrationNumber}-${name}.sql`);
@@ -127,7 +125,7 @@ const getTempPostgres = (sqlDir) => {
   const initSqlFileName = padNumber(0, 10) + '-setup.sql';
   const initSqlFile = `${sqlDir}/${initSqlFileName}`;
   writeInitSql(initSqlFile);
-  console.log('Starting temporary Postgre database')
+  console.log('Starting temporary PostgreSQL database')
   runCmd("docker", [ 
     "run", "-d", 
     "--name", name,
@@ -172,6 +170,7 @@ const getTempPostgres = (sqlDir) => {
 const initSqitch = () => runCmd(SQITCH_CMD, ["init", DB_NAME, "--engine", "pg"], {cwd: MIGRATIONS_DIR})
 const addSqitchMigration = (name, note) => runCmd(SQITCH_CMD, ["add", name, "-n", note || `Add ${name} migration`], {cwd: MIGRATIONS_DIR})
 const dumpSchema = (DB_URI, file) => {
+  console.log(`Writing database dump to ${file}`);
   const replace_superuser = new RegExp(`GRANT ([a-z0-9_-]+) TO ${SUPER_USER}`, "gi");
   runCmd(PG_DUMPALL_CMD, ['-f', `${file}.roles`, '--roles-only', '-d', DB_URI]);
   runCmd(PG_DUMP_CMD, [DB_URI, '-f', `${file}.schema`, '--schema-only']);
@@ -205,6 +204,8 @@ const apgdiffToFile = (file1, file2, destFile) => {
       .concat(params.map(p => p.replace(APP_DIR, DOCKER_APP_DIR)));
     cmd = 'docker';
   }
+  console.log(`Diffing ${file1} and ${file2}`);
+  console.log(`Writing the result to ${destFile}`);
   let p = proc.spawnSync(cmd, params, options);
   if(p.stdout.toString())
     fs.writeFileSync(destFile, p.stdout.toString());
