@@ -118,9 +118,8 @@ class Dashboard extends Component {
     const printer = key == 'db' ? printSQL : printLog;
     timestamp = timestamp ? timestamp : 0;
     if (containers[key].logProc) { containers[key].logProc.kill() }
-    containers[key].logProc = proc.spawn('docker',['logs', '--tail', 500, '--since', timestamp, '-f', containers[key].name]);
+    containers[key].logProc = proc.exec(`docker logs --tail 500 --since ${timestamp} -f ${containers[key].name} 2>&1`);
     containers[key].logProc.stdout.on('data', data => logger.log(printer(data)));
-    containers[key].logProc.stderr.on('data', data => logger.log(printer(data)));
   }
   selectContainer = (idx) => {
     const {activeContainer, containerOrder} = this.state;
