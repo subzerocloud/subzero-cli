@@ -77,7 +77,7 @@ const incrementMigrationNumber = () => fs.writeFileSync(MIGRATION_NUMBER_FILE, (
 const addMigration = (name, note, diff) => {
 
   if (!fs.existsSync(SQITCH_CONF) || !fs.statSync(SQITCH_CONF).isFile()){
-    console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", CONF);
+    console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", SQITCH_CONF);
     process.exit(0);
   }
   const migrationNumber = padNumber(getMigrationNumber(), 10);
