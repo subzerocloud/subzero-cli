@@ -136,7 +136,7 @@ const getTempPostgres = (sqlDir) => {
     "-e", `POSTGRES_USER=${SUPER_USER}`, 
     "-e", `POSTGRES_PASSWORD=${SUPER_USER_PASSWORD}`,
     "-v", `${sqlDir}:/docker-entrypoint-initdb.d`,
-    "postgres"
+    "postgres:9.6.6"
   ]);
 
   console.log('Waiting for it to load')
