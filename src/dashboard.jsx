@@ -25,7 +25,7 @@ import {
     LOG_LENGTH,
     PSQL_CMD
 } from './env.js';
-import {checkIsAppDir} from './common.js';
+import {checkIsAppDir, runCmd} from './common.js';
 
 
 const DB_DIR = APP_DIR + "/db/src/";
@@ -144,7 +144,8 @@ class Dashboard extends Component {
     const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR, '--set', 'ON_ERROR_STOP=1']
     var env = Object.create( process.env );
     env.PGPASSWORD = SUPER_USER_PASSWORD;
-    let psql = proc.spawn(PSQL_CMD, connectParams.concat(commands), { env: env })
+    env.DIR = DB_DIR;
+    let psql = runCmd(PSQL_CMD, connectParams.concat(commands), { env: env }, undefined, undefined, true)
     psql.stderr.on('data', (data) => logger.log(printLog(data)));
     return psql;
   }

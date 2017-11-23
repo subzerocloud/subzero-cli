@@ -5,6 +5,7 @@ import colors from 'colors';
 
 import {
   APP_DIR,
+  PSQL_CMD,
   SQITCH_CMD,
   PG_DUMP_CMD,
   PG_DUMPALL_CMD,
@@ -15,25 +16,38 @@ import {
   JAVA_CMD
 } from './env.js';
 
-export const runCmd = (cmd, params, options, silent) => {
-  if(USE_DOCKER_IMAGE && [SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD].indexOf(cmd) !== -1){
+export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error = false, use_async = false) => {
+  if(USE_DOCKER_IMAGE && [PSQL_CMD, SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD].indexOf(cmd) !== -1){
     //alter the command to run in docker
     let w = (options && options.cwd) ? options.cwd.replace(APP_DIR, DOCKER_APP_DIR) : DOCKER_APP_DIR;
-    params = ['run', '--net', 'host', '--rm', '-w', w, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`, DOCKER_IMAGE, cmd]
-      .concat(params.map(p => p.replace(APP_DIR, DOCKER_APP_DIR)));
+    let e = (options && options.env) ? Object.keys(options.env).reduce(function(acc, key) {
+      acc.push('-e')
+      acc.push(key + '=' + options.env[key].replace(APP_DIR, DOCKER_APP_DIR)); 
+      return acc;
+    }, []):[];
+    let u = []
     if(os.platform() == 'linux'){
       let {uid, gid} = os.userInfo();
-      params.splice(8, 0, '-u', `${uid}:${gid}`, '--env', "USERNAME=root");
+      u = ['-u', `${uid}:${gid}`, '--env', "USERNAME=root"];
     }
+    let p = ['run', '--net', 'host', '--rm', '-w', w, '--env-file', `${APP_DIR}/.env`, '-v', `${APP_DIR}:${DOCKER_APP_DIR}`]
+      .concat(e)
+      .concat(u)
+      .concat([DOCKER_IMAGE, cmd])
+      .concat(params.map(v => v.replace(APP_DIR, DOCKER_APP_DIR)));
     cmd = 'docker';
+    params = p;
   }
-  let p = proc.spawnSync(cmd, params, options);
-  if(silent !== true){
-    p.output.forEach(v => console.log(v ? v.toString() : ""));
+
+  if( !(silent || use_async) ){
+    options.stdio = [ 'ignore', 1, 2 ];
   }
-  if(p.status != 0){
-    process.exit(p.status);
+  let spawn = use_async ? proc.spawn : proc.spawnSync;
+  let pr = spawn(cmd, params, options);
+  if( !use_async && exit_on_error && pr.status != 0){
+    process.exit(pr.status);
   }
+  return pr;
 }
 
 export const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR})
