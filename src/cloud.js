@@ -574,13 +574,13 @@ program.command('app-deploy')
           else
             return { host: app.db_host, port: app.db_port };
         })();
-        console.log("Deploying migrations to subzero.cloud with sqitch");
-        migrationsDeploy(answers.db_admin || app.db_admin, answers.db_admin_pass, host, port, app.db_name);
         getDockerLogin(token, () => {
           console.log("Building and deploying openresty container to subzero.cloud");
           runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
           runCmd("docker", ["tag", "openresty", `${app.openresty_repo}:${answers.version}`]);
           runCmd("docker", ["push", `${app.openresty_repo}:${answers.version}`]);
+          console.log("Deploying migrations to subzero.cloud with sqitch");
+          migrationsDeploy(answers.db_admin || app.db_admin, answers.db_admin_pass, host, port, app.db_name);
           console.log(`Changing ${app.name} application version to ${answers.version}`);
           updateApplication(appId, token, { version: answers.version });
         });
