@@ -37,7 +37,7 @@ export const USE_DOCKER_IMAGE = process.env.USE_DOCKER_IMAGE || true;
 const LOCALHOST = 'localhost';
 export const DEV_DB_URI = process.env.DEV_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:${DB_PORT}/${DB_NAME}`
 export const PROD_DB_URI = process.env.PROD_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:5433/${DB_NAME}`
-const _IGNORE_ROLES = process.env.IGNORE_ROLES || `${SUPER_USER}, ${DB_USER}, ${DB_ANON_ROLE}, postgres`
+const _IGNORE_ROLES = process.env.IGNORE_ROLES || `${SUPER_USER}, ${DB_USER}, postgres`
 export const IGNORE_ROLES = _IGNORE_ROLES.split(',').map(s => s.trim());
 export const DOCKER_APP_DIR = '/src';
 export const DOCKER_IMAGE = process.env.DOCKER_IMAGE || 'subzerocloud/subzero-cli-tools'

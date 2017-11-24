@@ -50,7 +50,7 @@ export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error 
   return pr;
 }
 
-export const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR})
+export const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR}, false, true)
 
 export const fileExists = path => fs.existsSync(path) && fs.statSync(path).isFile();
 
