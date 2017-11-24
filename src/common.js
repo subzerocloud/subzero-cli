@@ -13,6 +13,7 @@ import {
   DOCKER_IMAGE,
   USE_DOCKER_IMAGE,
   MIGRATIONS_DIR,
+  OPENRESTY_DIR,
   JAVA_CMD
 } from './env.js';
 
@@ -50,6 +51,25 @@ export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error 
   return pr;
 }
 
+export const checkPostgresConnection = (connection_string, pass, exit_on_error = true) => {
+  console.log(`Checking PostgreSQL connection info (${connection_string})`);
+  var env = Object.create( process.env );
+  env.PGPASSWORD = pass;
+  const random_number = Math.floor(Math.random() * 100).toString();
+  const params = ['--quiet', '--tuples-only', '-c', `SELECT ${random_number}`, connection_string] 
+  let result = runCmd(PSQL_CMD, params, { env: env }, true, false).stdout.toString().replace(/\s/g,'');
+  if(random_number !== result){
+    console.log(" ");
+    console.log(`Could not verify the connection to PostgreSQL`);
+    if(exit_on_error){
+      process.exit(1);
+    }
+    else{
+      return false;
+    }
+  }
+  return true;
+}
 export const sqitchDeploy = url => runCmd(SQITCH_CMD, ["deploy", url], {cwd: MIGRATIONS_DIR}, false, true)
 
 export const fileExists = path => fs.existsSync(path) && fs.statSync(path).isFile();
@@ -72,6 +92,14 @@ export const checkMigrationsInitiated = () => {
   if( !(dirExists(MIGRATIONS_DIR) && fileExists(`${MIGRATIONS_DIR}/sqitch.plan`)) ){
     console.log("Error: ".red + "database migrations not initiated");
     console.log("Please run `subzero migrations init` before trying to deploy the code");
+    process.exit(0);
+  }
+}
+
+export const checkOpenrestyInitiated = () => {
+  if( !(dirExists(OPENRESTY_DIR) && fileExists(`${OPENRESTY_DIR}/Dockerfile`)) ){
+    console.log("Error: ".red + "Dockerfile for custom OpenResty image missing");
+    console.log(`Please create ${OPENRESTY_DIR}/Dockerfile`);
     process.exit(0);
   }
 }

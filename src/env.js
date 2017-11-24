@@ -33,6 +33,7 @@ export const PSQL_CMD = process.env.PSQL_CMD || 'psql';
 export const PG_DUMP_CMD = process.env.PG_DUMP_CMD || 'pg_dump';
 export const PG_DUMPALL_CMD = process.env.PG_DUMP_CMD || 'pg_dumpall';
 export const MIGRATIONS_DIR = `${APP_DIR}/db/migrations`;
+export const OPENRESTY_DIR = `${APP_DIR}/openresty`;
 export const USE_DOCKER_IMAGE = process.env.USE_DOCKER_IMAGE || true;
 const LOCALHOST = 'localhost';
 export const DEV_DB_URI = process.env.DEV_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:${DB_PORT}/${DB_NAME}`

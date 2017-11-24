@@ -12,7 +12,23 @@ import {highlight} from 'cli-highlight';
 import validator from 'validator';
 import {config} from 'dotenv';
 import proc from 'child_process';
-import {runCmd, fileExists, dirExists, notEmptyString, checkIsAppDir, sqitchDeploy, checkMigrationsInitiated} from './common.js';
+import {
+  runCmd,
+  checkOpenrestyInitiated,
+  fileExists,
+  dirExists,
+  notEmptyString,
+  checkIsAppDir,
+  sqitchDeploy,
+  checkMigrationsInitiated,
+  checkPostgresConnection
+} from './common.js';
+import {
+  APP_DIR,
+  OPENRESTY_DIR,
+  COMPOSE_PROJECT_NAME
+} from './env.js';
+
 import Table from 'tty-table';
 
 const SERVER_URL = "https://api.subzero.cloud/rest";
@@ -68,7 +84,7 @@ const signup = (name, email, password, invite) => {
 const createApplication = (token, app, cb) => {
   app.version = 'v0.0.0';
   request
-    .post(`${SERVER_URL}/applications?select=id`)
+    .post(`${SERVER_URL}/applications?select=id,name,domain,openresty_repo,db_service_host,db_location,db_admin,db_host,db_port,db_name,db_schema,db_authenticator,db_anon_role,max_rows,pre_request,version,openresty_image_type`)
     .send({...app})
     .set("Authorization", `Bearer ${token}`)
     .set("Prefer", "return=representation")
@@ -76,9 +92,11 @@ const createApplication = (token, app, cb) => {
     .end((err, res) => {
       if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok){
-        let id = res.body.id;
+        let app_config = res.body;
+        let id = app_config.id;
+        
         console.log(`Application ${id} created`.green);
-        cb(id);
+        cb(app_config);
       }else if(res.status == 401)
         console.log(JWT_EXPIRED_ERROR);
       else
@@ -105,25 +123,31 @@ const readToken = () => {
   }
 }
 
-const saveSubzeroAppId = id => fs.writeFileSync(SUBZERO_APP_FILE, `{ "id": "${id}" }`);
+const saveSubzeroAppConfig = app_config => fs.writeFileSync(SUBZERO_APP_FILE, JSON.stringify(app_config, null, 2));
 
-const readSubzeroAppId = () => {
+const readSubzeroAppConfig = () => {
   if(!fileExists(SUBZERO_APP_FILE)){
     console.log("Error: ".red + "Couldn't find a .subzero-app file, did you create an application with `subzero cloud create`?");
     process.exit(0);
   } else {
     try {
-      let id = JSON.parse(fs.readFileSync(SUBZERO_APP_FILE, 'utf8')).id;
-      if(!id){
-        console.log("Error: ".red + "No 'id' key in .subzero-app");
-        process.exit(0);
-      }else
-        return id;
+      return JSON.parse(fs.readFileSync(SUBZERO_APP_FILE, 'utf8'));
     } catch(e) {
       console.log("Error: ".red + "Invalid json in .subzero-app");
       process.exit(0);
     }
   }
+}
+
+const readSubzeroAppId = () => {
+  let conf = readSubzeroAppConfig();
+  let id = conf.id;
+  if(!id){
+    console.log("Error: ".red + "No 'id' key in .subzero-app");
+    process.exit(0);
+  }
+  
+  return id;
 }
 
 // TODO! the info in in env contants
@@ -202,6 +226,9 @@ const getApplication = (id, token, cb) => {
 }
 
 const updateApplication = (id, token, app) => {
+  delete app['id'];
+  delete app['db_service_host'];
+  delete app['openresty_repo'];
   request
     .patch(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
     .send({...app})
@@ -219,21 +246,20 @@ const updateApplication = (id, token, app) => {
     });
 }
 
-const getDockerLogin = (token, cb) => {
-  request
+const loginToDocker = async (token) => {
+  console.log("Logging in to registry.subzero.cloud");
+  const res = await request
     .get(`${SERVER_URL}/rpc/get_docker_login`)
-    .set("Authorization", `Bearer ${token}`)
-    .end((err, res) => {
-      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
-      if(res.ok){
-        console.log("Logging in to subzero.cloud docker registry..");
-        console.log(proc.execSync(res.text).toString('utf8').green);
-        cb();
-      }else{
-        console.log("%s".red, res.body.message);
-        process.exit(0);
-      }
-    });
+    .set("Authorization", `Bearer ${token}`);
+  // if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
+  if(res.ok){
+    console.log("Logging in to subzero.cloud docker registry..");
+    console.log(proc.execSync(res.text).toString('utf8').green);
+  }else{
+    console.log("%s".red, res.body.message);
+    process.exit(0);
+  }
+  
 }
 
 const migrationsDeploy = (user, pass, host, port, db) => {
@@ -365,6 +391,7 @@ program.command('app-create')
         type: 'input',
         name: 'name',
         message: 'Enter your application name',
+        default: COMPOSE_PROJECT_NAME,
         validate: val => notEmptyString(val)?true:"Cannot be empty"
       },
       {
@@ -399,7 +426,7 @@ program.command('app-create')
       {
         type: 'password',
         name: 'db_admin_pass',
-        message: 'Enter the database administrator account password(8 chars minimum)',
+        message: 'Enter the database administrator account password (8 chars minimum)',
         mask: '*',
         validate: val => {
           if(notEmptyString(val)){
@@ -411,21 +438,6 @@ program.command('app-create')
             return "Cannot be empty";
         },
         when: answers => answers.db_location == "container"
-      },
-      {
-        type: 'password',
-        name: 'jwt_secret',
-        message: 'Enter your jwt secret (32 chars minimum)',
-        validate: val => {
-          if(notEmptyString(val)){
-            if(val.length >= 32)
-              return true;
-            else
-              return "Must be 32 chars minimum";
-          }else
-            return "Cannot be empty";
-        },
-        mask : '*'
       },
       {
         type: 'input',
@@ -457,13 +469,7 @@ program.command('app-create')
         validate: val => notEmptyString(val)?true:"Cannot be empty",
         default: env.db_name
       },
-      {
-        type: 'input',
-        name: 'db_schema',
-        message: 'Enter the db schema',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_schema
-      },
+      
       {
         type: 'input',
         name: 'db_authenticator',
@@ -474,8 +480,9 @@ program.command('app-create')
       {
         type: 'password',
         name: 'db_authenticator_pass',
-        message: 'Enter the db authenticator role password(8 chars minimum)',
+        message: 'Enter the db authenticator role password (8 chars minimum)',
         mask: '*',
+        when: answers => answers.db_location == "container",
         validate: val => {
           if(notEmptyString(val)){
             if(val.length >= 8)
@@ -487,13 +494,62 @@ program.command('app-create')
         }
       },
       {
+        type: 'password',
+        name: 'db_authenticator_pass',
+        message: 'Enter the db authenticator role password',
+        mask: '*',
+        when: answers => answers.db_location == "external",
+        validate: (val, answers) => {
+          if(notEmptyString(val)){
+            let pg_host = answers.db_host,
+                pg_port = answers.db_port,
+                pg_user = answers.db_authenticator,
+                pg_pass = val,
+                pg_db_name = answers.db_name;
+            return checkPostgresConnection(`postgres://${pg_user}@${pg_host}:${pg_port}/${pg_db_name}`, pg_pass, false);
+          }else
+            return "Cannot be empty";
+        }
+      },
+      {
+        type: 'input',
+        name: 'db_schema',
+        message: 'Enter the db schema exposed for API',
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        default: env.db_schema
+      },
+      {
         type: 'input',
         name: 'db_anon_role',
         message: 'Enter the db anonymous role',
         validate: val => notEmptyString(val)?true:"Cannot be empty",
         default: env.db_anon_role
+      },
+      {
+        type: 'password',
+        name: 'jwt_secret',
+        message: 'Enter your jwt secret (32 chars minimum)',
+        validate: val => {
+          if(notEmptyString(val)){
+            if(val.length >= 32)
+              return true;
+            else
+              return "Must be 32 chars minimum";
+          }else
+            return "Cannot be empty";
+        },
+        mask : '*'
+      },
+      {
+        type: 'confirm',
+        message: "Use custom OpenRestyImage",
+        name: 'openresty_image_type',
+        default: fileExists(`${OPENRESTY_DIR}/Dockerfile`)
       }
     ]).then(answers => {
+      
+      answers.openresty_image_type = answers.openresty_image_type?'custom':'default';
+
       let app = answers;
       inquirer.prompt([
         {
@@ -503,7 +559,7 @@ program.command('app-create')
         }
       ]).then(answers => {
         if(answers.createIt)
-          createApplication(token, app, id => saveSubzeroAppId(id));
+          createApplication(token, app, conf => saveSubzeroAppConfig(conf));
         else
           console.log("No application created");
       });
@@ -543,49 +599,82 @@ program.command('app-deploy')
   .action(() => {
     checkIsAppDir();
     let token = readToken(),
-        appId = readSubzeroAppId();
-    checkMigrationsInitiated();
-    getApplication(appId, token, app => {
-      inquirer.prompt([
-        {
-          type: 'input',
-          name: 'db_admin',
-          message: "Enter the database administrator account",
-          validate: val => notEmptyString(val)?true:"Cannot be empty",
-          when: () => app.db_location == "external",
-        },
-        {
-          type: 'password',
-          name: 'db_admin_pass',
-          message: 'Enter the database administrator account password',
-          mask: '*',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        },
-        {
-          type: 'input',
-          name: 'version',
-          message: 'Enter the new version of the application (ex: v0.1.0)',
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        }
-      ]).then(answers => {
-        let {host, port} = (() => {
-          if(app.db_location == 'container')
-            return digSrv(app.db_service_host);
-          else
-            return { host: app.db_host, port: app.db_port };
-        })();
-        getDockerLogin(token, () => {
-          console.log("Building and deploying openresty container to subzero.cloud");
-          runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
-          runCmd("docker", ["tag", "openresty", `${app.openresty_repo}:${answers.version}`]);
-          runCmd("docker", ["push", `${app.openresty_repo}:${answers.version}`]);
-          console.log("Deploying migrations to subzero.cloud with sqitch");
-          migrationsDeploy(answers.db_admin || app.db_admin, answers.db_admin_pass, host, port, app.db_name);
-          console.log(`Changing ${app.name} application version to ${answers.version}`);
-          updateApplication(appId, token, { version: answers.version });
-        });
-      });
+        app_conf = readSubzeroAppConfig(),
+        appId = readSubzeroAppId(),
+        runSqitchMigrations = dirExists(`${APP_DIR}/db`),
+        buildOpenresty = app_conf.openresty_image_type === 'custom';
+    if(runSqitchMigrations){
+      checkMigrationsInitiated();
+    }
+    if(buildOpenresty){
+      checkOpenrestyInitiated()
+    }
+    //getApplication(appId, token, app => {
+    inquirer.prompt([
+
+      //db_admin_pass,
+      //jwt_secret,
+      //db_authenticator_pass,
+      {
+        type: 'input',
+        name: 'db_admin',
+        message: "Enter the database administrator account",
+        validate: val => notEmptyString(val)?true:"Cannot be empty",
+        when: () => (app_conf.db_location == "external" && runSqitchMigrations && !app_conf.db_admin),
+      },
+      {
+        type: 'password',
+        name: 'db_admin_pass',
+        message: 'Enter the database administrator account password',
+        mask: '*',
+        when: () => runSqitchMigrations,
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      }
+      // ,{
+      //   type: 'input',
+      //   name: 'version',
+      //   message: 'Enter the new version of the application (ex: v0.1.0)',
+      //   validate: val => notEmptyString(val)?true:"Cannot be empty"
+      // }
+    ]).then(async (answers) => {
+      let {host, port} = (() => {
+        if(app_conf.db_location == 'container')
+          return digSrv(app_conf.db_service_host);
+        else
+          return { host: app_conf.db_host, port: app_conf.db_port };
+      })();
+      let pg_host = host,
+          pg_port = port,
+          pg_user = answers.db_admin || app_conf.db_admin,
+          pg_pass = answers.db_admin_pass;
+      
+      if(runSqitchMigrations){
+        checkPostgresConnection(`postgres://${pg_user}@${pg_host}:${pg_port}/${app_conf.db_name}`, pg_pass);
+      }
+
+      if(buildOpenresty){
+        console.log("Building and deploying openresty container to subzero.cloud");
+        await loginToDocker(token);
+        runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
+        runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${answers.version}`]);
+        runCmd("docker", ["push", `${app_conf.openresty_repo}:${answers.version}`]);
+      }
+      else{
+        console.log("Skipping OpenResty image building")
+      }
+      
+      if(runSqitchMigrations){
+        console.log("Deploying migrations to subzero.cloud with sqitch");
+        migrationsDeploy(pg_user, pg_pass, pg_host, pg_port, app_conf.db_name);
+      }
+      else{
+        console.log("Skipping database migration deploy")
+      }
+      
+      console.log(`Changing ${app_conf.name} application version to ${app_conf.version}`);
+      updateApplication(appId, token, app_conf);
     });
+    //});
   });
 
 program.command('app-status')

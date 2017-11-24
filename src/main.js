@@ -58,8 +58,8 @@ program
   });
 
 const baseProject = (dir, repo) => {
-  runCmd("git", ["clone", repo, dir]);
-  runCmd("git", ["--git-dir", `${dir}/.git`, "remote", "rename", "origin", "upstream"]);
+  runCmd("git", ["clone", repo, dir]); //TODO! fails when non empty dir or dir not exists
+  runCmd("git", ["--git-dir", `${dir}/.git`, "remote", "rename", "origin", "upstream"]); //TODO unset remote branch
   console.log("\nYou can now do:\n");
   console.log("git remote add origin <your git repo url here>".white);
   console.log("git push -u origin master".white);
