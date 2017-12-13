@@ -55,13 +55,26 @@ program
             value: 'https://github.com/subzerocloud/subzero-starter-kit/archive/master.tar.gz'
           }
         ]
+      },
+      {
+        type: 'confirm',
+        message: "Do you want to manage your database structure/migrations here?",
+        name: 'withDb',
+        default: true
       }
-    ]).then(answers => baseProject(answers.dir, answers.repo));
+    ]).then(answers => baseProject(answers.dir, answers.repo, answers.withDb));
   });
 
-const baseProject = (dir, repo) => {
-  let {uid, gid} = os.userInfo();
-  proc.execSync(`docker run -u ${uid}:${gid} -v ${process.cwd()}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE} sh -c 'mkdir -p ${dir} && wget -qO- ${repo} | tar xz -C ${dir} --strip-components=1'`);
+const baseProject = (dir, repo, withDb) => {
+  let {uid, gid} = os.userInfo(),
+      cwd = process.cwd();
+  proc.execSync(`
+    docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
+    sh -c 'mkdir -p ${dir} && wget -qO- ${repo} | tar xz -C ${dir} --strip-components=1'`);
+  if(!withDb)
+    proc.execSync(`
+      docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
+      sh -c 'rm -rf ${cwd}/${dir}/db && rm -rf ${cwd}/${dir}/tests/db && sed -i "/# This is the database/,/docker-entrypoint-initdb/d" docker-compose.yml && sed -i "/3000/,/db/{/3000/!d}" docker-compose.yml && sed -i "/db/d" docker-compose.yml'`);
 }
 
 program.parse(process.argv);
