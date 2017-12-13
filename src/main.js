@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
+import os from 'os';
 import program from 'commander';
 import {version} from '../package.json';
 import proc from 'child_process';
 import inquirer from 'inquirer';
 import {runCmd, notEmptyString} from './common.js';
 import colors from 'colors';
+import { DOCKER_IMAGE, DOCKER_APP_DIR } from './env.js';
 
 program
   .version(version)
@@ -46,11 +48,11 @@ program
         choices: [
           {
             name: 'postgrest-starter-kit (REST)',
-            value: 'https://github.com/subzerocloud/postgrest-starter-kit'
+            value: 'https://github.com/subzerocloud/postgrest-starter-kit/archive/master.tar.gz'
           },
           {
             name: 'subzero-starter-kit (REST & GraphQL)',
-            value: 'https://github.com/subzerocloud/subzero-starter-kit'
+            value: 'https://github.com/subzerocloud/subzero-starter-kit/archive/master.tar.gz'
           }
         ]
       }
@@ -58,12 +60,8 @@ program
   });
 
 const baseProject = (dir, repo) => {
-  runCmd("git", ["clone", repo, dir]); //TODO! fails when non empty dir or dir not exists
-  runCmd("git", ["--git-dir", `${dir}/.git`, "remote", "rename", "origin", "upstream"]); //TODO unset remote branch
-  console.log("\nYou can now do:\n");
-  console.log("git remote add origin <your git repo url here>".white);
-  console.log("git push -u origin master".white);
-  console.log("");
+  let {uid, gid} = os.userInfo();
+  proc.execSync(`docker run -u ${uid}:${gid} -v ${process.cwd()}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE} sh -c 'mkdir -p ${dir} && wget -qO- ${repo} | tar xz -C ${dir} --strip-components=1'`);
 }
 
 program.parse(process.argv);

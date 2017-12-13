@@ -11,7 +11,9 @@ RUN echo "installing dependencies" \
     && echo '@edge http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
     && apk update \
     && apk add --no-cache --virtual .build-deps \
-        build-base perl-dev gnupg curl wget \
+        build-base perl-dev gnupg curl ca-certificates wget \
+
+    && update-ca-certificates \
 
     && apk add --update --no-cache \
         git \
