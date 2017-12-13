@@ -74,7 +74,16 @@ const baseProject = (dir, repo, withDb) => {
   if(!withDb)
     proc.execSync(`
       docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
-      sh -c 'rm -rf ${cwd}/${dir}/db && rm -rf ${cwd}/${dir}/tests/db && sed -i "/# This is the database/,/docker-entrypoint-initdb/d" docker-compose.yml && sed -i "/3000/,/db/{/3000/!d}" docker-compose.yml && sed -i "/db/d" docker-compose.yml'`);
+      sh -c '${
+        `rm -rf ${cwd}/${dir}/db && ` +
+        `rm -rf ${cwd}/${dir}/tests/db/{rls,structure}.sql && rm -rf ${cwd}/${dir}/tests/rest/{auth,common,read}.js && ` +
+        // Delete whole "db" component
+        `sed -i "/### DB START/,/### DB END/d" docker-compose.yml && ` +
+        // Delete "links: - db:db" from postgrest
+        `sed -i "/3000/,/db/{/3000/!d}" docker-compose.yml && ` +
+        // Delete all remaining "- db:db" lines
+        `sed -i "/db/d" docker-compose.yml`
+      }'`);
 }
 
 program.parse(process.argv);
