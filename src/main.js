@@ -68,10 +68,11 @@ program
 const baseProject = (dir, repo, withDb) => {
   let {uid, gid} = os.userInfo(),
       cwd = process.cwd();
+  console.log("Downloading the base project..");
   proc.execSync(`
     docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
     sh -c 'mkdir -p ${dir} && wget -qO- ${repo} | tar xz -C ${dir} --strip-components=1'`);
-  if(!withDb)
+  if(!withDb){
     proc.execSync(`
       docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
       sh -c '${
@@ -84,6 +85,8 @@ const baseProject = (dir, repo, withDb) => {
         // Delete all remaining "- db:db" lines
         `sed -i "/db/d" docker-compose.yml`
       }'`);
+    console.log("Don't forget to edit the sample db connection details in the .env file".yellow);
+  }
 }
 
 program.parse(process.argv);
