@@ -656,8 +656,8 @@ program.command('app-deploy')
         console.log("Building and deploying openresty container to subzero.cloud");
         await loginToDocker(token);
         runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
-        runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${answers.version}`]);
-        runCmd("docker", ["push", `${app_conf.openresty_repo}:${answers.version}`]);
+        runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${app_conf.version}`]);
+        runCmd("docker", ["push", `${app_conf.openresty_repo}:${app_conf.version}`]);
       }
       else{
         console.log("Skipping OpenResty image building")
