@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
+import os from 'os';
 import program from 'commander';
 import {version} from '../package.json';
 import proc from 'child_process';
 import inquirer from 'inquirer';
 import {runCmd, notEmptyString} from './common.js';
 import colors from 'colors';
+import { DOCKER_IMAGE, DOCKER_APP_DIR } from './env.js';
 
 program
   .version(version)
@@ -46,24 +48,45 @@ program
         choices: [
           {
             name: 'postgrest-starter-kit (REST)',
-            value: 'https://github.com/subzerocloud/postgrest-starter-kit'
+            value: 'https://github.com/subzerocloud/postgrest-starter-kit/archive/master.tar.gz'
           },
           {
             name: 'subzero-starter-kit (REST & GraphQL)',
-            value: 'https://github.com/subzerocloud/subzero-starter-kit'
+            value: 'https://github.com/subzerocloud/subzero-starter-kit/archive/master.tar.gz'
           }
         ]
+      },
+      {
+        type: 'confirm',
+        message: "Do you want to manage your database structure/migrations here?",
+        name: 'withDb',
+        default: true
       }
-    ]).then(answers => baseProject(answers.dir, answers.repo));
+    ]).then(answers => baseProject(answers.dir, answers.repo, answers.withDb));
   });
 
-const baseProject = (dir, repo) => {
-  runCmd("git", ["clone", repo, dir]); //TODO! fails when non empty dir or dir not exists
-  runCmd("git", ["--git-dir", `${dir}/.git`, "remote", "rename", "origin", "upstream"]); //TODO unset remote branch
-  console.log("\nYou can now do:\n");
-  console.log("git remote add origin <your git repo url here>".white);
-  console.log("git push -u origin master".white);
-  console.log("");
+const baseProject = (dir, repo, withDb) => {
+  let {uid, gid} = os.userInfo(),
+      cwd = process.cwd();
+  console.log("Downloading the base project..");
+  proc.execSync(`
+    docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
+    sh -c 'mkdir -p ${dir} && wget -qO- ${repo} | tar xz -C ${dir} --strip-components=1'`);
+  if(!withDb){
+    proc.execSync(`
+      docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
+      sh -c '${
+        `rm -rf ${cwd}/${dir}/db && ` +
+        `rm -rf ${cwd}/${dir}/tests/db/{rls,structure}.sql && rm -rf ${cwd}/${dir}/tests/rest/{auth,common,read}.js && ` +
+        // Delete whole "db" component
+        `sed -i "/### DB START/,/### DB END/d" docker-compose.yml && ` +
+        // Delete "links: - db:db" from postgrest
+        `sed -i "/3000/,/db/{/3000/!d}" docker-compose.yml && ` +
+        // Delete all remaining "- db:db" lines
+        `sed -i "/db/d" docker-compose.yml`
+      }'`);
+    console.log("Don't forget to edit the sample db connection details in the .env file".yellow);
+  }
 }
 
 program.parse(process.argv);
