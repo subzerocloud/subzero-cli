@@ -36,7 +36,7 @@ const SERVER_URL = "https://api.subzero.cloud/rest";
 const HOME_DIR = os.homedir();
 const SUBZERO_DIR = `${HOME_DIR}/.subzero`
 const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
-const SUBZERO_APP_FILE = "./.subzero-app";
+const SUBZERO_APP_FILE = "./subzero-app.json";
 
 const JWT_EXPIRED_ERROR = "JWT Expired".red + ", please login again with " + "`subzero cloud login`".white;
 
@@ -127,13 +127,13 @@ const saveSubzeroAppConfig = app_config => fs.writeFileSync(SUBZERO_APP_FILE, JS
 
 const readSubzeroAppConfig = () => {
   if(!fileExists(SUBZERO_APP_FILE)){
-    console.log("Error: ".red + "Couldn't find a .subzero-app file, did you create an application with `subzero cloud create`?");
+    console.log("Error: ".red + `Couldn't find a ${SUBZERO_APP_FILE} file, did you create an application with` + " `subzero cloud create`?");
     process.exit(0);
   } else {
     try {
       return JSON.parse(fs.readFileSync(SUBZERO_APP_FILE, 'utf8'));
     } catch(e) {
-      console.log("Error: ".red + "Invalid json in .subzero-app");
+      console.log("Error: ".red + `Invalid json in ${SUBZERO_APP_FILE}`);
       process.exit(0);
     }
   }
@@ -143,7 +143,7 @@ const readSubzeroAppId = () => {
   let conf = readSubzeroAppConfig();
   let id = conf.id;
   if(!id){
-    console.log("Error: ".red + "No 'id' key in .subzero-app");
+    console.log("Error: ".red + `No 'id' key in ${SUBZERO_APP_FILE}`);
     process.exit(0);
   }
 
@@ -418,7 +418,7 @@ program.command('app-create')
   .description('Create an application on subzero')
   .action(() => {
     if(fileExists(SUBZERO_APP_FILE)){
-      console.log("Error: ".red + "There is a .subzero-app file already in place for this project");
+      console.log("Error: ".red + `There is a ${SUBZERO_APP_FILE} file already in place for this project`);
       process.exit(0);
     }
     checkIsAppDir();
