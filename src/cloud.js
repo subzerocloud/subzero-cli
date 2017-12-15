@@ -253,7 +253,6 @@ const loginToDocker = async (token) => {
     .set("Authorization", `Bearer ${token}`);
   // if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
   if(res.ok){
-    console.log("Logging in to subzero.cloud docker registry..");
     console.log(proc.execSync(res.text).toString('utf8').green);
   }else{
     console.log("%s".red, res.body.message);
