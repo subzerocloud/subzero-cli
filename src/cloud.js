@@ -36,7 +36,7 @@ const SERVER_URL = "https://api.subzero.cloud/rest";
 const HOME_DIR = os.homedir();
 const SUBZERO_DIR = `${HOME_DIR}/.subzero`
 const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
-const SUBZERO_APP_FILE = "./.subzero-app";
+const SUBZERO_APP_FILE = "./subzero-app.json";
 
 const JWT_EXPIRED_ERROR = "JWT Expired".red + ", please login again with " + "`subzero cloud login`".white;
 
@@ -94,7 +94,7 @@ const createApplication = (token, app, cb) => {
       if(res.ok){
         let app_config = res.body;
         let id = app_config.id;
-        
+
         console.log(`Application ${id} created`.green);
         cb(app_config);
       }else if(res.status == 401)
@@ -127,13 +127,13 @@ const saveSubzeroAppConfig = app_config => fs.writeFileSync(SUBZERO_APP_FILE, JS
 
 const readSubzeroAppConfig = () => {
   if(!fileExists(SUBZERO_APP_FILE)){
-    console.log("Error: ".red + "Couldn't find a .subzero-app file, did you create an application with `subzero cloud create`?");
+    console.log("Error: ".red + `Couldn't find a ${SUBZERO_APP_FILE} file, did you create an application with` + " `subzero cloud create`?");
     process.exit(0);
   } else {
     try {
       return JSON.parse(fs.readFileSync(SUBZERO_APP_FILE, 'utf8'));
     } catch(e) {
-      console.log("Error: ".red + "Invalid json in .subzero-app");
+      console.log("Error: ".red + `Invalid json in ${SUBZERO_APP_FILE}`);
       process.exit(0);
     }
   }
@@ -143,10 +143,10 @@ const readSubzeroAppId = () => {
   let conf = readSubzeroAppConfig();
   let id = conf.id;
   if(!id){
-    console.log("Error: ".red + "No 'id' key in .subzero-app");
+    console.log("Error: ".red + `No 'id' key in ${SUBZERO_APP_FILE}`);
     process.exit(0);
   }
-  
+
   return id;
 }
 
@@ -225,6 +225,45 @@ const getApplication = (id, token, cb) => {
     });
 }
 
+const deployApplication = async (appId, app_conf, db_admin, db_admin_pass, token, buildOpenresty, runSqitchMigrations) => {
+  let {host, port} = (() => {
+    if(app_conf.db_location == 'container')
+      return digSrv(app_conf.db_service_host);
+    else
+      return { host: app_conf.db_host, port: app_conf.db_port };
+  })();
+  let pg_host = host,
+      pg_port = port,
+      pg_user = db_admin || app_conf.db_admin,
+      pg_pass = db_admin_pass;
+
+  if(runSqitchMigrations){
+    checkPostgresConnection(`postgres://${pg_user}@${pg_host}:${pg_port}/${app_conf.db_name}`, pg_pass);
+  }
+
+  if(buildOpenresty){
+    console.log("Building and deploying openresty container to subzero.cloud");
+    await loginToDocker(token);
+    runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
+    runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${app_conf.version}`]);
+    runCmd("docker", ["push", `${app_conf.openresty_repo}:${app_conf.version}`]);
+  }
+  else{
+    console.log("Skipping OpenResty image building")
+  }
+
+  if(runSqitchMigrations){
+    console.log("Deploying migrations to subzero.cloud with sqitch");
+    migrationsDeploy(pg_user, pg_pass, pg_host, pg_port, app_conf.db_name);
+  }
+  else{
+    console.log("Skipping database migration deploy")
+  }
+
+  console.log(`Changing ${app_conf.name} application version to ${app_conf.version}`);
+  updateApplication(appId, token, app_conf);
+}
+
 const updateApplication = (id, token, app) => {
   delete app['id'];
   delete app['db_service_host'];
@@ -253,13 +292,12 @@ const loginToDocker = async (token) => {
     .set("Authorization", `Bearer ${token}`);
   // if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
   if(res.ok){
-    console.log("Logging in to subzero.cloud docker registry..");
     console.log(proc.execSync(res.text).toString('utf8').green);
   }else{
     console.log("%s".red, res.body.message);
     process.exit(0);
   }
-  
+
 }
 
 const migrationsDeploy = (user, pass, host, port, db) => {
@@ -336,7 +374,7 @@ program.command('signup')
       }
     ]).then(answers => signup(answers.name, answers.email, answers.password, answers.invite));
   });
-program .command('login')
+program.command('login')
   .option("-e, --email [email]", "Your email")
   .option("-p, --password [password]", "Your password")
   .description('Login to subzero')
@@ -380,7 +418,7 @@ program.command('app-create')
   .description('Create an application on subzero')
   .action(() => {
     if(fileExists(SUBZERO_APP_FILE)){
-      console.log("Error: ".red + "There is a .subzero-app file already in place for this project");
+      console.log("Error: ".red + `There is a ${SUBZERO_APP_FILE} file already in place for this project`);
       process.exit(0);
     }
     checkIsAppDir();
@@ -469,7 +507,7 @@ program.command('app-create')
         validate: val => notEmptyString(val)?true:"Cannot be empty",
         default: env.db_name
       },
-      
+
       {
         type: 'input',
         name: 'db_authenticator',
@@ -547,7 +585,7 @@ program.command('app-create')
         default: fileExists(`${OPENRESTY_DIR}/Dockerfile`)
       }
     ]).then(answers => {
-      
+
       answers.openresty_image_type = answers.openresty_image_type?'custom':'default';
 
       let app = answers;
@@ -571,7 +609,7 @@ program.command('app-delete')
     checkIsAppDir();
     let token = readToken(),
         id = readSubzeroAppId();
-    
+
     getApplication(id, token, app => {
       printAppWithDescription(app);
       if(app.db_location == "container")
@@ -595,86 +633,54 @@ program.command('app-delete')
     });
   });
 program.command('app-deploy')
+  .option("-a, --dba [dba]", "Database administrator account(only needed for external db)")
+  .option("-p, --password [password]", "Database administrator account password")
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
-  .action(() => {
+  .action(options => {
     checkIsAppDir();
-    let token = readToken(),
-        app_conf = readSubzeroAppConfig(),
-        appId = readSubzeroAppId(),
-        runSqitchMigrations = dirExists(`${APP_DIR}/db`),
-        buildOpenresty = app_conf.openresty_image_type === 'custom';
+    const token = readToken(),
+          app_conf = readSubzeroAppConfig(),
+          appId = readSubzeroAppId(),
+          runSqitchMigrations = dirExists(`${APP_DIR}/db`),
+          buildOpenresty = app_conf.openresty_image_type === 'custom',
+          dbIsExternal = app_conf.db_location == "external",
+          {dba, password} = options,
+          noOptionsSpecified = !dba && !password;
     if(runSqitchMigrations){
       checkMigrationsInitiated();
     }
     if(buildOpenresty){
       checkOpenrestyInitiated()
     }
-    //getApplication(appId, token, app => {
-    inquirer.prompt([
+    if(noOptionsSpecified){
+      inquirer.prompt([
+        {
+          type: 'input',
+          name: 'db_admin',
+          message: "Enter the database administrator account",
+          validate: val => notEmptyString(val)?true:"Cannot be empty",
+          when: () => (dbIsExternal && runSqitchMigrations && !app_conf.db_admin),
+        },
+        {
+          type: 'password',
+          name: 'db_admin_pass',
+          message: 'Enter the database administrator account password',
+          mask: '*',
+          when: () => runSqitchMigrations,
+          validate: val => notEmptyString(val)?true:"Cannot be empty"
+        }
+      ]).then(answers => {
+        deployApplication(appId, app_conf, answers.db_admin, answers.db_admin_pass, token, buildOpenresty, runSqitchMigrations);
+      });
+    }else{
+      if(dbIsExternal && !notEmptyString(dba))
+        console.log("dba: cannot be empty");
 
-      //db_admin_pass,
-      //jwt_secret,
-      //db_authenticator_pass,
-      {
-        type: 'input',
-        name: 'db_admin',
-        message: "Enter the database administrator account",
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        when: () => (app_conf.db_location == "external" && runSqitchMigrations && !app_conf.db_admin),
-      },
-      {
-        type: 'password',
-        name: 'db_admin_pass',
-        message: 'Enter the database administrator account password',
-        mask: '*',
-        when: () => runSqitchMigrations,
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
-      }
-      // ,{
-      //   type: 'input',
-      //   name: 'version',
-      //   message: 'Enter the new version of the application (ex: v0.1.0)',
-      //   validate: val => notEmptyString(val)?true:"Cannot be empty"
-      // }
-    ]).then(async (answers) => {
-      let {host, port} = (() => {
-        if(app_conf.db_location == 'container')
-          return digSrv(app_conf.db_service_host);
-        else
-          return { host: app_conf.db_host, port: app_conf.db_port };
-      })();
-      let pg_host = host,
-          pg_port = port,
-          pg_user = answers.db_admin || app_conf.db_admin,
-          pg_pass = answers.db_admin_pass;
-      
-      if(runSqitchMigrations){
-        checkPostgresConnection(`postgres://${pg_user}@${pg_host}:${pg_port}/${app_conf.db_name}`, pg_pass);
-      }
-
-      if(buildOpenresty){
-        console.log("Building and deploying openresty container to subzero.cloud");
-        await loginToDocker(token);
-        runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
-        runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${answers.version}`]);
-        runCmd("docker", ["push", `${app_conf.openresty_repo}:${answers.version}`]);
-      }
-      else{
-        console.log("Skipping OpenResty image building")
-      }
-      
-      if(runSqitchMigrations){
-        console.log("Deploying migrations to subzero.cloud with sqitch");
-        migrationsDeploy(pg_user, pg_pass, pg_host, pg_port, app_conf.db_name);
-      }
-      else{
-        console.log("Skipping database migration deploy")
-      }
-      
-      console.log(`Changing ${app_conf.name} application version to ${app_conf.version}`);
-      updateApplication(appId, token, app_conf);
-    });
-    //});
+      if(!notEmptyString(password))
+        console.log("password: cannot be empty");
+      else
+        deployApplication(appId, app_conf, dba, password, token, buildOpenresty, runSqitchMigrations);
+    }
   });
 
 program.command('app-status')
