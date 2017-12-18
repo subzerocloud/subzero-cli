@@ -209,7 +209,7 @@ const deleteApplication = (id, token) => {
 
 const getApplication = (id, token, cb) => {
   request
-    .get(`${SERVER_URL}/applications?id=eq.${id}&select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
+    .get(`${SERVER_URL}/applications?id=eq.${id}&select=id,status,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
     .set("Authorization", `Bearer ${token}`)
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
@@ -304,7 +304,7 @@ const migrationsDeploy = (user, pass, host, port, db) => {
   sqitchDeploy(`db:pg://${user}:${pass}@${host}:${port}/${db}`);
 }
 
-const digSrv = serviceHost => {
+const digSrv = (serviceHost, failOnError = true) => {
   try{
     let srv = proc.execSync(`dig +short srv ${serviceHost}`).toString('utf8').trim().split(" ");
     if(srv.length == 4)
@@ -313,13 +313,23 @@ const digSrv = serviceHost => {
         port : srv[2]
       };
     else{
-      console.log(`Couldn't get SRV record from ${serviceHost}`.red);
+      if(failOnError){
+        console.log(`Couldn't get SRV record from ${serviceHost}`.red);
+        process.exit(0);
+      }
+    }
+    
+  }catch(e){
+    if(failOnError){
+      console.log(e.stdout.toString('utf8'));
       process.exit(0);
     }
-  }catch(e){
-    console.log(e.stdout.toString('utf8'));
-    process.exit(0);
   }
+
+  return {
+    host : '',
+    port : ''
+  };
 }
 
 const descriptions = {
@@ -331,7 +341,7 @@ const descriptions = {
 const printAppWithDescription = app => {
   let rows = [];
   if(app.db_location === 'container'){
-    let db_host_port = digSrv(app.db_service_host);
+    let db_host_port = digSrv(app.db_service_host, false);
     app.db_host = db_host_port.host;
     app.db_port = db_host_port.port;
   }
