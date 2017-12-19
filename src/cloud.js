@@ -245,9 +245,9 @@ const deployApplication = async (appId, app_conf, db_admin, db_admin_pass, token
     console.log("Building and deploying openresty container");
     if(usingSubzeroCloudRegistry)
       await loginToDocker(token);
-    runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
-    runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${app_conf.version}`]);
-    runCmd("docker", ["push", `${app_conf.openresty_repo}:${app_conf.version}`]);
+    runCmd("docker", ["build", "-t", "openresty", "./openresty"], {}, false, true);
+    runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${app_conf.version}`], {}, false, true);
+    runCmd("docker", ["push", `${app_conf.openresty_repo}:${app_conf.version}`], {}, false, true);
   }
   else{
     console.log("Skipping OpenResty image building")
