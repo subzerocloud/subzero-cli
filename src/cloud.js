@@ -225,7 +225,7 @@ const getApplication = (id, token, cb) => {
     });
 }
 
-const deployApplication = async (appId, app_conf, db_admin, db_admin_pass, token, buildOpenresty, runSqitchMigrations) => {
+const deployApplication = async (appId, app_conf, db_admin, db_admin_pass, token, buildOpenresty, runSqitchMigrations, usingSubzeroCloudRegistry) => {
   let {host, port} = (() => {
     if(app_conf.db_location == 'container')
       return digSrv(app_conf.db_service_host);
@@ -242,26 +242,29 @@ const deployApplication = async (appId, app_conf, db_admin, db_admin_pass, token
   }
 
   if(buildOpenresty){
-    console.log("Building and deploying openresty container to subzero.cloud");
-    await loginToDocker(token);
-    runCmd("docker", ["build", "-t", "openresty", "./openresty"]);
-    runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${app_conf.version}`]);
-    runCmd("docker", ["push", `${app_conf.openresty_repo}:${app_conf.version}`]);
+    console.log("Building and deploying openresty container");
+    if(usingSubzeroCloudRegistry)
+      await loginToDocker(token);
+    runCmd("docker", ["build", "-t", "openresty", "./openresty"], {}, false, true);
+    runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${app_conf.version}`], {}, false, true);
+    runCmd("docker", ["push", `${app_conf.openresty_repo}:${app_conf.version}`], {}, false, true);
   }
   else{
     console.log("Skipping OpenResty image building")
   }
 
   if(runSqitchMigrations){
-    console.log("Deploying migrations to subzero.cloud with sqitch");
+    console.log("Deploying migrations with sqitch");
     migrationsDeploy(pg_user, pg_pass, pg_host, pg_port, app_conf.db_name);
   }
   else{
     console.log("Skipping database migration deploy")
   }
 
-  console.log(`Changing ${app_conf.name} application version to ${app_conf.version}`);
-  updateApplication(appId, token, app_conf);
+  if(usingSubzeroCloudRegistry){
+    console.log(`Changing ${app_conf.name} application version to ${app_conf.version}`);
+    updateApplication(appId, token, app_conf);
+  }
 }
 
 const updateApplication = (id, token, app) => {
@@ -648,11 +651,12 @@ program.command('app-deploy')
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
   .action(options => {
     checkIsAppDir();
-    const token = readToken(),
-          app_conf = readSubzeroAppConfig(),
-          appId = readSubzeroAppId(),
+    const app_conf = readSubzeroAppConfig(),
+          usingSubzeroCloudRegistry = app_conf.openresty_repo && app_conf.openresty_repo.startsWith("registry.subzero.cloud"),
+          token = usingSubzeroCloudRegistry?readToken():null,
+          appId = usingSubzeroCloudRegistry?readSubzeroAppId():null,
           runSqitchMigrations = dirExists(`${APP_DIR}/db`),
-          buildOpenresty = app_conf.openresty_image_type === 'custom',
+          buildOpenresty = !app_conf.openresty_image_type || app_conf.openresty_image_type === 'custom',
           dbIsExternal = app_conf.db_location == "external",
           {dba, password} = options,
           noOptionsSpecified = !dba && !password;
@@ -680,7 +684,7 @@ program.command('app-deploy')
           validate: val => notEmptyString(val)?true:"Cannot be empty"
         }
       ]).then(answers => {
-        deployApplication(appId, app_conf, answers.db_admin, answers.db_admin_pass, token, buildOpenresty, runSqitchMigrations);
+        deployApplication(appId, app_conf, answers.db_admin, answers.db_admin_pass, token, buildOpenresty, runSqitchMigrations, usingSubzeroCloudRegistry);
       });
     }else{
       if(dbIsExternal && !notEmptyString(dba))
@@ -689,8 +693,8 @@ program.command('app-deploy')
       if(!notEmptyString(password))
         console.log("password: cannot be empty");
       else
-        deployApplication(appId, app_conf, dba, password, token, buildOpenresty, runSqitchMigrations);
-    }
+        deployApplication(appId, app_conf, dba, password, token, buildOpenresty, runSqitchMigrations, usingSubzeroCloudRegistry);
+  }
   });
 
 program.command('app-status')
