@@ -3,45 +3,28 @@
 
 import fs from 'fs';
 
-import program from 'commander';
-import {version} from '../package.json';
 import proc from 'child_process';
 import React, {Component} from 'react';
 import blessed from 'blessed';
 import {render} from 'react-blessed';
 
-
 import {highlight} from 'cli-highlight';
 import {StringDecoder} from 'string_decoder';
-import chokidar from 'chokidar';
 import Spinner from './spinner.js';
 import {
-    COMPOSE_PROJECT_NAME,
     APP_DIR,
-    SUPER_USER,
-    SUPER_USER_PASSWORD,
-    DB_HOST,
-    DB_NAME,
     LOG_LENGTH,
-    PSQL_CMD
+    WATCH_PATTERNS
 } from './env.js';
-import {checkIsAppDir, runCmd} from './common.js';
 
+import {resetDb, runWatcher, dockerContainers} from './watch.js';
 
-const DB_DIR = APP_DIR + "/db/src/";
-const WATCH_PATTERNS =
-        process.env.WATCH_PATTERNS
-        ? process.env.WATCH_PATTERNS.split(',').map(p => APP_DIR + '/' + p)
-        : [APP_DIR +'/db/src/**/*.sql', APP_DIR + '/openresty/lualib/**/*.lua', APP_DIR +'/openresty/nginx/conf/**/*.conf']
-const TITLES = {
-}
+import {checkIsAppDir} from './common.js';
 
 const decoder = new StringDecoder('utf8');
 //Workaround for a bug in the highlighting lib
 const printLog = data => highlight(decoder.write(data), {language : 'accesslog'}).replace(/<span class=\"hljs-string\">/g, '').replace(/<\/span>/g, '');
 const printSQL = data => highlight(decoder.write(data), {language : 'sql'});
-
-
 
 class Dashboard extends Component {
   constructor(props) {
@@ -77,40 +60,28 @@ class Dashboard extends Component {
     logger.log('Stopping watcher');
   }
   startWatcher = () => {
-    const onReady = () => {
-      const spinner = this.refs['watcherSpinner'];
+    const watcherReady = () => {
       const logger = this.refs['log_'+this.state.activeContainer];
-      spinner.stop();
+      logger.log('Watching ' + WATCH_PATTERNS.map(p => p.replace(APP_DIR + '/','')).join(', ') + ' for changes.');
+      logger.log('in ' + APP_DIR);
+    }
+    const reloadStart = relPath => {
+      const logger = this.refs['log_'+this.state.activeContainer];
+      logger.log(`${relPath} changed`);
+      logger.log('Starting code reload ------------------------');
+      this.refs['watcherSpinner'].start();
+    }
+    const reloadEnd = () => {
+      const logger = this.refs['log_'+this.state.activeContainer];
+      this.refs['watcherSpinner'].stop();
       logger.log('Ready ---------------------------------------');
     }
     this.setState({watcherRunning:true});
     if(this.watcher){ this.watcher.close(); }
-    this.watcher = chokidar.watch(WATCH_PATTERNS, { ignored : APP_DIR+'/**/tests/**'})
-      .on('change', path => {
-        const {containers} = this.state;
-        const spinner = this.refs['watcherSpinner'];
-        const logger = this.refs['log_'+this.state.activeContainer];
-        const relPath = path.replace(APP_DIR, '.');
-        logger.log(`${relPath} changed`);
-        logger.log('Starting code reload ------------------------');
-        spinner.start()
-        if(path.endsWith('.sql')){
-          this.resetDb().on('close', onReady);
-        }else{
-          if(containers['openresty']){
-            this.sendHUP(containers['openresty'].name).on('close', onReady);
-          }
-          else{
-            onReady();
-          }
-        }
-      })
-      .on('ready', () => {
-        const logger = this.refs['log_'+this.state.activeContainer];
-
-        logger.log('Watching ' + WATCH_PATTERNS.map(p => p.replace(APP_DIR + '/','')).join(', ') + ' for changes.');
-        logger.log('in ' + APP_DIR);
-      });
+    const {containers, activeContainer} = this.state;
+    this.watcher = runWatcher(containers,
+                              this.refs['log_' + activeContainer],
+                              watcherReady, reloadStart, reloadEnd);
   }
   startLogTail = (key, timestamp) => {
     const {containers} = this.state;
@@ -131,40 +102,10 @@ class Dashboard extends Component {
   restartContainer = (key) => {
     const container = this.state.containers[key];
     const logger = this.refs['log_'+key];
-    logger.log(`Restarting ${TITLES[key]} container ...`)
+    logger.log(`Restarting ${container.title} container ...`)
     proc.spawn('docker',['restart', container.name]).on('close', (code) => {
       logger.log('Done');
       this.startLogTail(key, Math.floor(new Date() / 1000));
-    });
-  }
-  runSql = (commands) => {
-    const {activeContainer} = this.state;
-    const logger = this.refs['log_'+activeContainer];
-    const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR, '--set', 'ON_ERROR_STOP=1']
-    var env = Object.create( process.env );
-    env.PGPASSWORD = SUPER_USER_PASSWORD;
-    env.DIR = DB_DIR;
-    let psql = runCmd(PSQL_CMD, connectParams.concat(commands), { env: env }, undefined, undefined, true)
-    psql.stderr.on('data', (data) => logger.log(printLog(data)));
-    return psql;
-  }
-  sendHUP = (containerName) => proc.spawn('docker',['kill', '-s', 'HUP', containerName]);
-  resetDb = () => {
-    const {containers} = this.state;
-    return this.runSql( ['postgres',
-      '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}';`,
-      '-c', `DROP DATABASE if exists ${DB_NAME};`,
-      '-c', `CREATE DATABASE ${DB_NAME};`
-    ])
-    .on('close', (code) => {
-        this.runSql( [DB_NAME,
-            '-f', DB_DIR +'init.sql'
-        ]).on('close', (code) => {
-          if(code == 0){
-            if(containers['postgrest']) {this.sendHUP(containers['postgrest'].name);}
-            if(containers['openresty']) {this.sendHUP(containers['openresty'].name);}
-          }
-        });
     });
   }
   clearLog = (key) => {
@@ -173,7 +114,8 @@ class Dashboard extends Component {
     fs.truncateSync(logFile, 0)
   }
   handleKeyPress = (key) => {
-    const {activeContainer, containerOrder, containers, watcherRunning} = this.state;
+    const {activeContainer, containerOrder, containers, watcherRunning} = this.state,
+          logger = this.refs['log_'+activeContainer];
     switch(key) {
         case 'left':
         case 'right':
@@ -185,7 +127,6 @@ class Dashboard extends Component {
           break;
         case 'c':// 'Clear log': {keys:['c']},
           //this.clearLog(activeContainer);
-          const logger = this.refs['log_'+activeContainer];
           logger.setContent('');
           break;
         case 't':// 'Restart this container': {keys:['t']}, this.restartContainer();
@@ -198,7 +139,7 @@ class Dashboard extends Component {
           watcherRunning ? this.stopWatcher() : this.startWatcher();
           break;
         case 'r':// 'Reset DB'
-          this.resetDb();
+          resetDb(containers, logger);
           break;
         case 'h':// 'Help': {keys:['?']}, this.hideHelp();
           this.setState({showHelp: !this.state.showHelp})
@@ -304,26 +245,7 @@ const screen = blessed.screen({
 
 const runDashboard = () => {
   checkIsAppDir();
-  const container_list = proc.execSync('docker ps -a -f name=${COMPOSE_PROJECT_NAME} --format "{{.Names}}"').toString('utf8').trim().split("\n");
-  const containers = container_list.reduce( ( acc, containerName ) => {
-    let key = containerName.replace(COMPOSE_PROJECT_NAME,'').replace('1','').replace(/_/g,'');
-    if (!TITLES[key]) {
-      TITLES[key] = containerName.replace(COMPOSE_PROJECT_NAME+'_','').replace(/_1$/,'');
-    }
-    acc[key] = {
-      name: containerName,
-      title: TITLES[key]
-    }
-    return acc
-  }, {});
-
-
-  render(<Dashboard containers={containers} />, screen);
+  render(<Dashboard containers={dockerContainers()} />, screen);
 }
-
-
-program
-  .version(version)
-  .parse(process.argv);
 
 runDashboard();

@@ -1,7 +1,6 @@
 import proc from 'child_process';
 import fs from 'fs';
 import os from 'os';
-import colors from 'colors';
 
 import {
   APP_DIR,
