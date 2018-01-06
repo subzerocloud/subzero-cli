@@ -43,3 +43,7 @@ export const IGNORE_ROLES = _IGNORE_ROLES.split(',').map(s => s.trim());
 export const DOCKER_APP_DIR = '/src';
 export const DOCKER_IMAGE = process.env.DOCKER_IMAGE || 'subzerocloud/subzero-cli-tools'
 export const DOCKER_MIGRATIONS_DIR = `${DOCKER_APP_DIR}/db/migrations`;
+export const DB_DIR = process.env.DB_DIR || `${APP_DIR}/db/src/`;
+export const WATCH_PATTERNS = process.env.WATCH_PATTERNS
+               ? process.env.WATCH_PATTERNS.split(',').map(p => APP_DIR + '/' + p)
+               : [APP_DIR +'/db/src/**/*.sql', APP_DIR + '/openresty/lualib/**/*.lua', APP_DIR +'/openresty/nginx/conf/**/*.conf'];

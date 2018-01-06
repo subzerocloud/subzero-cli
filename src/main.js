@@ -1,14 +1,21 @@
 #!/usr/bin/env node
 "use strict";
 
+import readline from 'readline';
 import os from 'os';
 import program from 'commander';
 import {version} from '../package.json';
 import proc from 'child_process';
 import inquirer from 'inquirer';
-import {runCmd, notEmptyString} from './common.js';
+import {notEmptyString, checkIsAppDir} from './common.js';
 import colors from 'colors';
-import { DOCKER_IMAGE, DOCKER_APP_DIR } from './env.js';
+import {
+  DOCKER_IMAGE,
+  DOCKER_APP_DIR,
+  WATCH_PATTERNS,
+  APP_DIR
+} from './env.js';
+import {resetDb, runWatcher, dockerContainers} from './watch.js';
 
 program
   .version(version)
@@ -88,5 +95,42 @@ const baseProject = (dir, repo, withDb) => {
     console.log("Don't forget to edit the sample db connection details in the .env file".yellow);
   }
 }
+
+program
+  .command('watch')
+  .description('Live code reloading for SQL/Lua/Nginx configs')
+  .action(() => {
+    checkIsAppDir();
+    console.log("You can reset the db by pressing the 'r' button\n".white);
+
+    const watcherReady = () => {
+      console.log('Watching ' + WATCH_PATTERNS.map(p => p.replace(APP_DIR + '/','')).join(', ') + ` in ${APP_DIR} for changes.`);
+    }
+    const reloadStart = relPath => {
+      console.log(`\n${relPath} changed`);
+      console.log('Starting code reload..');
+    }
+    const reloadEnd = () => {
+      console.log('Reload done');
+    }
+
+    const containers = dockerContainers();
+    const watcher = runWatcher(containers, console, watcherReady, reloadStart, reloadEnd);
+
+    readline.emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+
+    process.stdin.on('keypress', (str, key) => {
+      if(key.name === "c" && key.ctrl)
+        process.exit();
+
+      if(key.name === "r") {
+        console.log("\nResetting the db..");
+        resetDb(containers, console).on('close', () => console.log("Db reset done"));
+      }
+    });
+
+    process.on('exit', () => watcher.close());
+  });
 
 program.parse(process.argv);
