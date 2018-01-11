@@ -83,6 +83,20 @@ const signup = (name, email, password, invite) => {
 
 const createApplication = (token, app, cb) => {
   app.version = 'v0.0.0';
+  let certificate_file = null,
+      certificate_private_key_file = null;
+  if(app.uploadCertificate){
+    certificate_file = app.certificate_file;
+    certificate_private_key_file = app.certificate_private_key_file;
+
+    
+    delete app['certificate_file'];
+    delete app['certificate_private_key_file'];
+    app.certificate_body = fs.readFileSync(certificate_file, 'utf8');
+    app.certificate_private_key = fs.readFileSync(certificate_private_key_file, 'utf8');
+  }
+  delete app['uploadCertificate'];
+  
   request
     .post(`${SERVER_URL}/applications?select=id,name,domain,openresty_repo,db_service_host,db_location,db_admin,db_host,db_port,db_name,db_schema,db_authenticator,db_anon_role,max_rows,pre_request,version,openresty_image_type`)
     .send({...app})
@@ -94,7 +108,10 @@ const createApplication = (token, app, cb) => {
       if(res.ok){
         let app_config = res.body;
         let id = app_config.id;
-
+        if(certificate_file && certificate_file){
+          app_config.certificate_file = certificate_file;
+          app_config.certificate_private_key_file = certificate_private_key_file;
+        }
         console.log(`Application ${id} created`.green);
         cb(app_config);
       }else if(res.status == 401)
@@ -271,6 +288,12 @@ const updateApplication = (id, token, app) => {
   delete app['id'];
   delete app['db_service_host'];
   delete app['openresty_repo'];
+  if(app.certificate_file){
+    app.certificate_body = fs.readFileSync(app.certificate_file, 'utf8');
+    app.certificate_private_key = fs.readFileSync(app.certificate_private_key_file, 'utf8');
+    delete app['certificate_file'];
+    delete app['certificate_private_key_file'];
+  }
   request
     .patch(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
     .send({...app})
@@ -448,8 +471,32 @@ program.command('app-create')
       {
         type: 'input',
         name: 'domain',
-        message: 'Enter your domain (ex: myapp.subzero.cloud)',
+        message: 'Enter your domain (ex: myapp.subzero.cloud or myappdomain.com)',
         validate: val => validator.isFQDN(val)?true:"Must be valid domain name"
+      },
+      {
+        type: 'confirm',
+        message: "Do you to enable SSL for your domain (you'll need your certificate and private key in PEM format)?",
+        name: 'uploadCertificate',
+        when: answers => !answers.domain.match(/^[a-z0-9]+\.subzero\.cloud$/)
+      },
+      // generate self signed with
+      // openssl req -nodes -sha1 -x509 -newkey rsa:2048 -keyout key.pem -out certificate.pem -days 3650 -subj "/C=US/ST=Oregon/L=Portland/O=Company Name/OU=Org/CN=myappdomain.com"
+      {
+        type: 'input',
+        message: "Enter the the path to your certificate file",
+        name: 'certificate_file',
+        default: 'certificate.pem',
+        when: answers => answers.uploadCertificate,
+        validate: val => (notEmptyString(val) && fileExists(val)) ? true : `Can not open file ${val}`
+      },
+      {
+        type: 'input',
+        message: "Enter the the path to your private key file",
+        name: 'certificate_private_key_file',
+        default: 'key.pem',
+        when: answers => answers.uploadCertificate,
+        validate: val => (notEmptyString(val) && fileExists(val)) ? true : `Can not open file ${val}`
       },
       {
         type: 'list',
