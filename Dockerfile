@@ -6,9 +6,6 @@ ENV PATH=/usr/local/bin:$PATH
 
     
 RUN echo "installing dependencies" \
-    && echo '@edge http://dl-cdn.alpinelinux.org/alpine/edge/main' >> /etc/apk/repositories \
-    && echo '@edge http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories \
-    && echo '@edge http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
     && apk update \
     && apk add --no-cache --virtual .build-deps \
         build-base perl-dev gnupg curl ca-certificates wget \
@@ -18,7 +15,7 @@ RUN echo "installing dependencies" \
     && apk add --update --no-cache \
         git \
         tzdata \
-        postgresql-client@edge postgresql-dev@edge \
+        postgresql-client postgresql-dev \
         perl \
         openjdk8-jre \
         nodejs nodejs-npm \
