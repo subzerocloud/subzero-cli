@@ -28,7 +28,8 @@ import {
     IGNORE_ROLES,
     DOCKER_APP_DIR,
     DOCKER_IMAGE,
-    USE_DOCKER_IMAGE
+    USE_DOCKER_IMAGE,
+    PG_DOCKER_IMAGE
 } from './env.js';
 
 const TMP_DIR = `${APP_DIR}/tmp`;
@@ -134,7 +135,7 @@ const getTempPostgres = (sqlDir) => {
     "-e", `POSTGRES_USER=${SUPER_USER}`, 
     "-e", `POSTGRES_PASSWORD=${SUPER_USER_PASSWORD}`,
     "-v", `${sqlDir}:/docker-entrypoint-initdb.d`,
-    "postgres:9.6.6"
+    PG_DOCKER_IMAGE
   ]);
 
   console.log('Waiting for it to load')
