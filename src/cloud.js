@@ -98,7 +98,30 @@ const createApplication = (token, app, cb) => {
   delete app['uploadCertificate'];
   
   request
-    .post(`${SERVER_URL}/applications?select=id,name,domain,openresty_repo,db_service_host,db_location,db_admin,db_host,db_port,db_name,db_schema,db_authenticator,db_anon_role,max_rows,pre_request,version,openresty_image_type`)
+    .post(`${SERVER_URL}/applications?select=`
+        [
+          'id',
+          'name',
+          'domain',
+          'openresty_repo',
+          'db_service_host',
+          'db_location',
+          'db_admin',
+          'db_host',
+          'db_port',
+          'db_name',
+          'db_schema',
+          'db_authenticator',
+          'db_anon_role',
+          'max_rows',
+          'pre_request',
+          'version',
+          'openresty_image_type',
+          'task_instances',
+          'created_on',
+          'updated_on'
+        ].join(',')
+    )
     .send({...app})
     .set("Authorization", `Bearer ${token}`)
     .set("Prefer", "return=representation")
@@ -183,7 +206,30 @@ const loadEnvFile = () => {
 
 const listApplications = (token, cb) => {
   request
-    .get(`${SERVER_URL}/applications?select=id,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
+    .get(`${SERVER_URL}/applications?select=`
+      [
+        'id',
+        'name',
+        'domain',
+        'openresty_repo',
+        'db_service_host',
+        'db_location',
+        'db_admin',
+        'db_host',
+        'db_port',
+        'db_name',
+        'db_schema',
+        'db_authenticator',
+        'db_anon_role',
+        'max_rows',
+        'pre_request',
+        'version',
+        'openresty_image_type',
+        'task_instances',
+        'created_on',
+        'updated_on'
+      ].join(',')
+    )
     .set("Authorization", `Bearer ${token}`)
     .end((err, res) => {
       if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
@@ -224,9 +270,50 @@ const deleteApplication = (id, token) => {
     });
 }
 
+const changeApplicationInstances = (id, token, num) => {
+  request
+    .post(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
+    .send({task_instances: num})
+    .set("Authorization", `Bearer ${token}`)
+    .set("Prefer", "return=representation")
+    .set("Accept", "application/vnd.pgrst.object")
+    .end((err, res) => {
+      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
+      if(res.ok)
+        console.log("Application %s is %s".green, res.body.id, (num == 0? 'stopping':'starting'));
+      else if(res.status == 401)
+        console.log(JWT_EXPIRED_ERROR);
+      else
+        console.log("%s".red, res.body.message);
+    });
+}
+
 const getApplication = (id, token, cb) => {
   request
-    .get(`${SERVER_URL}/applications?id=eq.${id}&select=id,status,db_admin,db_anon_role,db_authenticator,db_host,db_location,db_name,db_port,db_service_host,db_schema,openresty_repo,domain,max_rows,name,pre_request,version`)
+    .get(`${SERVER_URL}/applications?id=eq.${id}&select=`
+        [
+          'id',
+          'name',
+          'domain',
+          'openresty_repo',
+          'db_service_host',
+          'db_location',
+          'db_admin',
+          'db_host',
+          'db_port',
+          'db_name',
+          'db_schema',
+          'db_authenticator',
+          'db_anon_role',
+          'max_rows',
+          'pre_request',
+          'version',
+          'openresty_image_type',
+          'task_instances',
+          'created_on',
+          'updated_on'
+        ].join(',')
+    )
     .set("Authorization", `Bearer ${token}`)
     .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
@@ -754,4 +841,21 @@ program.command('app-status')
       printAppWithDescription(app);
     });
   });
+program.command('app-start')
+  .description('Start a subzero application')
+  .action(() => {
+    checkIsAppDir();
+    let token = readToken(),
+        id = readSubzeroAppId();
+    changeApplicationInstances(id, token, 1);
+  });
+program.command('app-stop')
+  .description('Stop a subzero application')
+  .action(() => {
+    checkIsAppDir();
+    let token = readToken(),
+        id = readSubzeroAppId();
+    changeApplicationInstances(id, token, 0);
+  });
+
 program.parse(process.argv);
