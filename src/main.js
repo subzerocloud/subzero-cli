@@ -73,15 +73,19 @@ program
   });
 
 const baseProject = (dir, repo, withDb) => {
-  let {uid, gid} = os.userInfo(),
+  let u = "",
       cwd = process.cwd();
+  if(os.platform() == 'linux'){
+    let {uid, gid} = os.userInfo();
+    u = `-u ${uid}:${gid}`;
+  }
   console.log("Downloading the base project..");
   proc.execSync(`
-    docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
+    docker run ${u} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
     sh -c 'mkdir -p ${dir} && wget -qO- ${repo} | tar xz -C ${dir} --strip-components=1'`);
   if(!withDb){
     proc.execSync(`
-      docker run -u ${uid}:${gid} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
+      docker run ${u} -v ${cwd}/:${DOCKER_APP_DIR} ${DOCKER_IMAGE}
       sh -c '${
         `rm -rf ${cwd}/${dir}/db && ` +
         `rm -rf ${cwd}/${dir}/tests/db/{rls,structure}.sql && rm -rf ${cwd}/${dir}/tests/rest/{auth,common,read}.js && ` +
