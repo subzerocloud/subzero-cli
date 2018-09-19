@@ -13,7 +13,7 @@
     "dist/"
   ],
   "preferGlobal": true,
-  "version": "0.1.23",
+  "version": "0.1.24",
   "scripts": {
     "build": "babel src --out-dir dist"
   },
