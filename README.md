@@ -18,14 +18,20 @@ After installing, executing the command in the root of your project will give yo
 
 
 
+## Prerequisites
+ ✓ [Docker](https://www.docker.com)
+ ✓ [Node.js](https://nodejs.org/en/)
+
+
+
 ## Install
 
 Use `npm` to install the subzero developer tools
 ```bash
-  docker pull subzerocloud/subzero-cli-tools
-  npm install -g subzero-cli
-  # check it was installed
-  subzero --help
+  docker pull subzerocloud/subzero-cli-tools # install the helper docker image
+  npm install --global --production windows-build-tools # windows ONLY!!!
+  npm install -g subzero-cli # install the cli
+  subzero --help # check it was installed
 ```
 
 ## Installing from source
