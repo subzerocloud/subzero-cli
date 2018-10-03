@@ -1,11 +1,13 @@
 {
   "name": "subzero-cli",
-  "description": "A TUI for subZero",
+  "description": "A TUI for subZero https://subzero.cloud",
   "bin": {
-    "subzero": "dist/main.js",
+    "subzero": "dist/subzero.js",
     "subzero-dashboard": "dist/dashboard.js",
     "subzero-migrations": "dist/migrations.js",
-    "subzero-cloud": "dist/cloud.js"
+    "subzero-cloud": "dist/cloud.js",
+    "subzero-watch": "dist/watch.js",
+    "subzero-base-project": "dist/base-project.js"
   },
   "files": [
     "LICENSE.txt",
@@ -18,7 +20,7 @@
     "build": "babel src --out-dir dist"
   },
   "dependencies": {
-    "babel-runtime": "^6.26.0",
+    "babel-runtime": "*",
     "blessed": "git://github.com/subzerocloud/blessed",
     "chokidar": "*",
     "cli-highlight": "*",
@@ -26,8 +28,8 @@
     "commander": "*",
     "dotenv": "*",
     "inquirer": "*",
-    "react": "0.14.7",
-    "react-blessed": "0.1.8",
+    "react": "*",
+    "react-blessed": "*",
     "rimraf": "*",
     "sleep": "*",
     "superagent": "*",
@@ -36,7 +38,7 @@
   },
   "devDependencies": {
     "babel-cli": "*",
-    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-plugin-transform-runtime": "*",
     "babel-preset-env": "*",
     "babel-preset-react": "*",
     "babel-preset-stage-0": "*",
@@ -44,11 +46,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/subzerocloud/devtools.git"
+    "url": "git+https://github.com/subzerocloud/subzero-cli.git"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/subzerocloud/devtools/issues"
+    "url": "https://github.com/subzerocloud/subzero-cli/issues"
   },
-  "homepage": "https://github.com/subzerocloud/devtools"
+  "homepage": "https://github.com/subzerocloud/subzero-cli"
 }

@@ -1,6 +1,8 @@
 import {dirname,resolve} from 'path';
 import {config} from 'dotenv';
 import fs from 'fs';
+import os from 'os';
+import proc from 'child_process';
 
 
 let cfg = {
@@ -48,3 +50,5 @@ export const DB_DIR = process.env.DB_DIR || `${APP_DIR}/db/src/`;
 export const WATCH_PATTERNS = process.env.WATCH_PATTERNS
                ? process.env.WATCH_PATTERNS.split(',').map(p => APP_DIR + '/' + p)
                : [APP_DIR +'/db/src/**/*.sql', APP_DIR + '/openresty/lualib/**/*.lua', APP_DIR +'/openresty/nginx/conf/**/*.conf'];
+export const PLATFORM = os.platform();
+export const DOCKER_HOST_OS = USE_DOCKER_IMAGE ? proc.execSync('docker info -f "{{ .OSType}}"').toString('utf8').trim() : null;              

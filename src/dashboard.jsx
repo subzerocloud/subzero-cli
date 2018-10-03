@@ -17,9 +17,7 @@ import {
     WATCH_PATTERNS
 } from './env.js';
 
-import {resetDb, runWatcher, dockerContainers} from './watch.js';
-
-import {checkIsAppDir} from './common.js';
+import {checkIsAppDir,resetDb, runWatcher, dockerContainers} from './common.js';
 
 const decoder = new StringDecoder('utf8');
 //Workaround for a bug in the highlighting lib
@@ -165,9 +163,14 @@ class Dashboard extends Component {
         selected:{
           fg: "green"
         },
-        item: {
-          fg: "grey"
+        prefix: {
+
         }
+      }
+    }
+    const bottomMenuStyle = {
+      style: {
+        prefix: {}
       }
     }
     const logWindowStyle = {
@@ -220,7 +223,7 @@ class Dashboard extends Component {
           <log key={key} hidden={key != activeContainer} focused={key == activeContainer}
             ref={'log_' + key} top={1} label="Logs" class={logWindowStyle} />
         )}
-        <listbar ref="bottomMenu" bottom={0} height={1} width="100%-2" left={2} autoCommandKeys={false} commands={{
+        <listbar ref="bottomMenu" bottom={0} height={1} width="100%-2" left={2} class={bottomMenuStyle} autoCommandKeys={false} commands={{
           'Clear log': {keys:['c']},
           'Restart this container': {keys:['t']},
           'Restart all containers': {keys:['a']},
@@ -236,15 +239,15 @@ class Dashboard extends Component {
   }
 }
 
-const screen = blessed.screen({
-  autoPadding: true,
-  smartCSR: true,
-  title: 'subZero devtools',
-  fullUnicode: true
-});
 
 const runDashboard = () => {
   checkIsAppDir();
+  const screen = blessed.screen({
+    autoPadding: true,
+    smartCSR: true,
+    title: 'subZero devtools',
+    fullUnicode: true
+  });  
   render(<Dashboard containers={dockerContainers()} />, screen);
 }
 
