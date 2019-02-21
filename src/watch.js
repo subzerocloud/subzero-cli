@@ -12,7 +12,7 @@ import {
   WATCH_PATTERNS
 } from './env.js';
 
-import {checkIsAppDir, dockerContainers, runWatcher} from './common.js';
+import {checkIsAppDir, dockerContainers, runWatcher, resetDb} from './common.js';
 
 
 const watcherReady = () => {
