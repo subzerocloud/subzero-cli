@@ -43,7 +43,6 @@ export const PROD_DB_URI = process.env.PROD_DB_URI || `postgres://${SUPER_USER}:
 const _IGNORE_ROLES = process.env.IGNORE_ROLES || `${SUPER_USER}, ${DB_USER}, postgres`
 export const IGNORE_ROLES = _IGNORE_ROLES.split(',').map(s => s.trim());
 export const DOCKER_APP_DIR = '/src';
-export const PG_DOCKER_IMAGE = process.env.PG_DOCKER_IMAGE || 'postgres:9.6.6'
 export const DOCKER_IMAGE = process.env.DOCKER_IMAGE || 'subzerocloud/subzero-cli-tools'
 export const DOCKER_MIGRATIONS_DIR = `${DOCKER_APP_DIR}/db/migrations`;
 export const DB_DIR = process.env.DB_DIR || `${APP_DIR}/db/src/`;

@@ -29,7 +29,7 @@ import {
     DOCKER_APP_DIR,
     DOCKER_IMAGE,
     USE_DOCKER_IMAGE,
-    PG_DOCKER_IMAGE
+    PSQL_CMD
 } from './env.js';
 
 const TMP_DIR = `${APP_DIR}/tmp`;
@@ -62,7 +62,7 @@ const initMigrations = () => {
                 `${MIGRATIONS_DIR}/revert/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
 
   console.log(`Copying ${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql to ${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
-  runCmd('cp', [`${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`]);
+  fs.copyFileSync(`${TMP_DIR}/dev-${INITIAL_FILE_NAME}.sql`, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${INITIAL_FILE_NAME}.sql`);
 
   incrementMigrationNumber();
   rimraf.sync(TMP_DIR);
@@ -126,7 +126,9 @@ const getTempPostgres = (sqlDir) => {
   const initSqlFileName = padNumber(0, 10) + '-setup.sql';
   const initSqlFile = `${sqlDir}/${initSqlFileName}`;
   writeInitSql(initSqlFile);
-  console.log('Starting temporary PostgreSQL database')
+  let pgVersion = getPgVersion(DEV_DB_URI)
+  let pgDockerImage = `postgres:${pgVersion}`
+  console.log(`Starting temporary PostgreSQL database with the version matching your dev database (${pgDockerImage})`)
   runCmd("docker", [ 
     "run", "-d", 
     "--name", name,
@@ -135,7 +137,7 @@ const getTempPostgres = (sqlDir) => {
     "-e", `POSTGRES_USER=${SUPER_USER}`, 
     "-e", `POSTGRES_PASSWORD=${SUPER_USER_PASSWORD}`,
     "-v", `${sqlDir}:/docker-entrypoint-initdb.d`,
-    PG_DOCKER_IMAGE
+    pgDockerImage
   ]);
 
   console.log('Waiting for it to load')
@@ -213,6 +215,14 @@ const apgdiffToFile = (file1, file2, destFile) => {
   if(p.stderr.toString())
     console.log(p.stderr.toString());
 };
+const getPgVersion = (DB_URI) =>{
+  var env = Object.create( process.env );
+  var pgVersion = runCmd(PSQL_CMD, ['--quiet', '--tuples-only', '-c', 'show server_version', DB_URI], { env: env }, true, false).stdout.toString().trim();
+  if(pgVersion.indexOf(' ') !== -1){
+    pgVersion = pgVersion.substr(0, pgVersion.indexOf(' ')); 
+  }
+  return pgVersion;
+}
 
 program
   .command('init')
