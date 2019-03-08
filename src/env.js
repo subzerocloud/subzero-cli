@@ -12,7 +12,7 @@ let cfg = {
 
 if (fs.existsSync(cfg.path) && fs.statSync(cfg.path).isFile()) {
   config(cfg);//.env file vars added to process.env
-  process.env.ENV_FILE = resolve(cfg.path)
+  process.env.ENV_FILE = resolve(cfg.path).replace(/\\/g, '/');
   process.env.APP_DIR = dirname(process.env.ENV_FILE);
 }
 
