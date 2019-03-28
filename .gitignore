@@ -2,3 +2,4 @@ node_modules/
 dist
 bindist
 *.sublime-*
+package-lock.json
