@@ -96,7 +96,7 @@ export const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
 export const checkIsAppDir = () => {
   if(!fileExists(`.env`)){
     console.log("Error: ".red + ".env file does not exist");
-    console.log("Please run this command in a directory that contains a subzero project or you can create a base project with " +
+    console.log("Please run this command in a directory that contains a subzero/postgrest project.\nYou can create a poject with " +
                 "`subzero base-project`".white);
     process.exit(0);
   }

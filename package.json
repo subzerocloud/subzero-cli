@@ -34,7 +34,8 @@
     "sleep": "*",
     "superagent": "*",
     "tty-table": "*",
-    "validator": "*"
+    "validator": "*",
+    "cookie": "*"
   },
   "devDependencies": {
     "babel-cli": "*",
@@ -42,7 +43,9 @@
     "babel-preset-env": "*",
     "babel-preset-react": "*",
     "babel-preset-stage-0": "*",
-    "babel-register": "*"
+    "babel-register": "*",
+    "react-devtools-core": "*",
+    "ws": "*"
   },
   "repository": {
     "type": "git",

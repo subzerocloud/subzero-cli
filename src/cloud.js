@@ -6,6 +6,7 @@ import fs from 'fs';
 import program from 'commander';
 import inquirer from 'inquirer';
 import request from 'superagent';
+import cookie  from 'cookie';
 import rimraf from 'rimraf';
 import colors from 'colors';
 import {highlight} from 'cli-highlight';
@@ -26,7 +27,8 @@ import {
 import {
   APP_DIR,
   OPENRESTY_DIR,
-  COMPOSE_PROJECT_NAME
+  COMPOSE_PROJECT_NAME,
+  MIGRATIONS_DIR
 } from './env.js';
 
 import Table from 'tty-table';
@@ -35,10 +37,10 @@ const SERVER_URL = "https://api.subzero.cloud/rest";
 
 const HOME_DIR = os.homedir();
 const SUBZERO_DIR = `${HOME_DIR}/.subzero`
-const SUBZERO_CREDENTIALS_FILE = `${SUBZERO_DIR}/credentials.json`;
+const SUBZERO_TOKEN_FILE = `${SUBZERO_DIR}/token.json`;
 const SUBZERO_APP_FILE = "./subzero-app.json";
 
-const JWT_EXPIRED_ERROR = "JWT Expired".red + ", please login again with " + "`subzero cloud login`".white;
+const JWT_EXPIRED_ERROR = "Login token Expired".red + ", please login again with " + "`subzero cloud login`".white;
 
 const login = (email, password) => {
   request
@@ -47,110 +49,35 @@ const login = (email, password) => {
     .end((err, res) => {
       if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok){
-        saveToken(res.body[0].token);
+        const cookies = cookie.parse(res.headers['set-cookie'][0] || '')
+        saveToken(cookies.SESSIONID);
         console.log("Login succeeded".green);
       }else
-        console.log("%s".red, res.body.message);
+        printApiError(res.body);
     });
 }
 
 const saveToken = token => {
   if(!dirExists(SUBZERO_DIR))
     fs.mkdirSync(SUBZERO_DIR);
-  fs.writeFileSync(SUBZERO_CREDENTIALS_FILE, `{ "token": "${token}" }`);
+  fs.writeFileSync(SUBZERO_TOKEN_FILE, `{ "token": "${token}" }`);
 }
 
 const logout = () => {
-  if(dirExists(SUBZERO_DIR)){
-    rimraf.sync(SUBZERO_DIR);
+  if(fileExists(SUBZERO_TOKEN_FILE)){
+    fs.unlinkSync(SUBZERO_TOKEN_FILE);
     console.log("Removing subzero credentials");
   }else
     console.log("Not logged in to subzero");
 }
 
-const signup = (name, email, password, invite) => {
-  request
-    .post(`${SERVER_URL}/rpc/signup`)
-    .send({"name": name, "email": email, "password": password, "invite": invite})
-  .end((err, res) => {
-      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
-      if(res.ok){
-        console.log("Account created".green);
-      }else
-        console.log("%s".red, res.body.message);
-    });
-}
-
-const createApplication = (token, app, cb) => {
-  app.version = 'v0.0.0';
-  let certificate_file = null,
-      certificate_private_key_file = null;
-  if(app.uploadCertificate){
-    certificate_file = app.certificate_file;
-    certificate_private_key_file = app.certificate_private_key_file;
-
-    
-    delete app['certificate_file'];
-    delete app['certificate_private_key_file'];
-    app.certificate_body = fs.readFileSync(certificate_file, 'utf8');
-    app.certificate_private_key = fs.readFileSync(certificate_private_key_file, 'utf8');
-  }
-  delete app['uploadCertificate'];
-  
-  request
-    .post(`${SERVER_URL}/applications?select=`
-        [
-          'id',
-          'name',
-          'domain',
-          'openresty_repo',
-          'db_service_host',
-          'db_location',
-          'db_admin',
-          'db_host',
-          'db_port',
-          'db_name',
-          'db_schema',
-          'db_authenticator',
-          'db_anon_role',
-          'max_rows',
-          'pre_request',
-          'version',
-          'openresty_image_type',
-          'task_instances',
-          'created_on',
-          'updated_on'
-        ].join(',')
-    )
-    .send({...app})
-    .set("Authorization", `Bearer ${token}`)
-    .set("Prefer", "return=representation")
-    .set("Accept", "application/vnd.pgrst.object")
-    .end((err, res) => {
-      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
-      if(res.ok){
-        let app_config = res.body;
-        let id = app_config.id;
-        if(certificate_file && certificate_file){
-          app_config.certificate_file = certificate_file;
-          app_config.certificate_private_key_file = certificate_private_key_file;
-        }
-        console.log(`Application ${id} created`.green);
-        cb(app_config);
-      }else if(res.status == 401)
-        console.log(JWT_EXPIRED_ERROR);
-      else
-        console.log("%s".red, res.body.message);
-    });
-}
-
 const readToken = () => {
-  if(!fileExists(SUBZERO_CREDENTIALS_FILE)){
-    console.log("Error: ".red + "You need to be logged in to make this operation, please run " + "'subzero cloud login'".white);
+  if(!fileExists(SUBZERO_TOKEN_FILE)){
+    console.log("Error: ".red + "You need to be logged in to perform this action, please run " + "'subzero cloud login'".white);
     process.exit(0);
   } else {
     try {
-      let token = JSON.parse(fs.readFileSync(SUBZERO_CREDENTIALS_FILE, 'utf8')).token;
+      let token = JSON.parse(fs.readFileSync(SUBZERO_TOKEN_FILE, 'utf8')).token;
       if(!token){
         console.log("Error: ".red + "No 'token' key in .subzero/credentials.json, please try to login again");
         process.exit(0);
@@ -163,11 +90,13 @@ const readToken = () => {
   }
 }
 
-const saveSubzeroAppConfig = app_config => fs.writeFileSync(SUBZERO_APP_FILE, JSON.stringify(app_config, null, 2));
+const saveSubzeroAppConfig = app => {
+  fs.writeFileSync(SUBZERO_APP_FILE, getApplicationConfig(app));
+}
 
 const readSubzeroAppConfig = () => {
   if(!fileExists(SUBZERO_APP_FILE)){
-    console.log("Error: ".red + `Couldn't find a ${SUBZERO_APP_FILE} file, did you create an application with` + " `subzero cloud create`?");
+    console.log("Error: ".red + `Couldn't find a ${SUBZERO_APP_FILE} file`);
     process.exit(0);
   } else {
     try {
@@ -190,31 +119,15 @@ const readSubzeroAppId = () => {
   return id;
 }
 
-// TODO! the info in in env contants
-const loadEnvFile = () => {
-  config({ path: ".env"});
-  return {
-    db_host: process.env.DB_HOST,
-    db_port: process.env.DB_PORT,
-    db_name: process.env.DB_NAME,
-    db_schema: process.env.DB_SCHEMA,
-    db_authenticator: process.env.DB_USER,
-    db_anon_role: process.env.DB_ANON_ROLE,
-    db_admin: process.env.SUPER_USER,
-  };
-}
-
 const listApplications = (token, cb) => {
   request
-    .get(`${SERVER_URL}/applications?select=`
+    .get(`${SERVER_URL}/applications?select=` +
       [
+        'status',
         'id',
         'name',
         'domain',
         'openresty_repo',
-        'db_service_host',
-        'db_location',
-        'db_admin',
         'db_host',
         'db_port',
         'db_name',
@@ -223,8 +136,7 @@ const listApplications = (token, cb) => {
         'db_anon_role',
         'max_rows',
         'pre_request',
-        'version',
-        'openresty_image_type',
+        'openresty_image_tag',
         'task_instances',
         'created_on',
         'updated_on'
@@ -238,7 +150,7 @@ const listApplications = (token, cb) => {
       else if(res.status == 401)
         console.log(JWT_EXPIRED_ERROR);
       else
-        console.log("%s".red, res.body.message);
+        printApiError(res.body);
     });
 }
 
@@ -253,121 +165,184 @@ const printApps = apps => {
   console.log(table.render().toString());
 }
 
-const deleteApplication = (id, token) => {
-  request
-    .delete(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
-    .set("Authorization", `Bearer ${token}`)
-    .set("Prefer", "return=representation")
-    .set("Accept", "application/vnd.pgrst.object")
-    .end((err, res) => {
-      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
-      if(res.ok)
-        console.log("Application %s deleted".green, res.body.id);
-      else if(res.status == 401)
-        console.log(JWT_EXPIRED_ERROR);
-      else
-        console.log("%s".red, res.body.message);
-    });
+const getApplication = async (id, token, cb) => {
+  let res = null
+  try {
+    res = await request
+      .get(`${SERVER_URL}/applications?id=eq.${id}&select=` +
+          [
+            'id',
+            'status',
+            'name',
+            'domain',
+            'openresty_repo',
+            'db_host',
+            'db_port',
+            'db_name',
+            'db_schema',
+            'db_authenticator',
+            'db_anon_role',
+            'max_rows',
+            'pre_request',
+            'openresty_image_tag',
+            'task_instances',
+            'created_on',
+            'updated_on'
+          ].join(',')
+      )
+      .set("Authorization", `Bearer ${token}`)
+      .set("Accept", "application/vnd.pgrst.object");
+
+    //console.log(res.body)
+    if(res.ok){
+      if(cb) { cb(res.body) }
+      else { return res.body }
+    }
+    
+  } catch (err) {
+    //console.log(res)
+    if(err.status == 406)
+      console.log("No application with that id exists");
+    else if(err.status == 401)
+      console.log(JWT_EXPIRED_ERROR);
+    else
+      printApiError(err.response.body);
+  }
+  
+   
+      
+  
+  
+  return null;
 }
 
-const changeApplicationInstances = (id, token, num) => {
+const reloadDatabaseSchema = (id, token) => {
   request
-    .post(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
-    .send({task_instances: num})
+    .get(`${SERVER_URL}/rpc/reload_db_schema?id=eq.${id}`)
     .set("Authorization", `Bearer ${token}`)
-    .set("Prefer", "return=representation")
-    .set("Accept", "application/vnd.pgrst.object")
     .end((err, res) => {
       if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
       if(res.ok)
-        console.log("Application %s is %s".green, res.body.id, (num == 0? 'stopping':'starting'));
-      else if(res.status == 401)
-        console.log(JWT_EXPIRED_ERROR);
-      else
-        console.log("%s".red, res.body.message);
-    });
-}
-
-const getApplication = (id, token, cb) => {
-  request
-    .get(`${SERVER_URL}/applications?id=eq.${id}&select=`
-        [
-          'id',
-          'name',
-          'domain',
-          'openresty_repo',
-          'db_service_host',
-          'db_location',
-          'db_admin',
-          'db_host',
-          'db_port',
-          'db_name',
-          'db_schema',
-          'db_authenticator',
-          'db_anon_role',
-          'max_rows',
-          'pre_request',
-          'version',
-          'openresty_image_type',
-          'task_instances',
-          'created_on',
-          'updated_on'
-        ].join(',')
-    )
-    .set("Authorization", `Bearer ${token}`)
-    .set("Accept", "application/vnd.pgrst.object")
-    .end((err, res) => {
-      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
-      if(res.ok)
-        cb(res.body);
+        console.log("Database schema reloaded".green);
       else if(res.status == 406)
         console.log("No application with that id exists");
       else if(res.status == 401)
         console.log(JWT_EXPIRED_ERROR);
       else
-        console.log("%s".red, res.body.message);
+        printApiError(res.body);
     });
 }
 
-const deployApplication = async (appId, app_conf, db_admin, db_admin_pass, token, buildOpenresty, runSqitchMigrations, usingSubzeroCloudRegistry) => {
-  let {host, port} = (() => {
-    if(app_conf.db_location == 'container')
-      return digSrv(app_conf.db_service_host);
-    else
-      return { host: app_conf.db_host, port: app_conf.db_port };
-  })();
-  let pg_host = host,
-      pg_port = port,
-      pg_user = db_admin || app_conf.db_admin,
-      pg_pass = db_admin_pass;
+const deployApplication = async (options) => {
+
+  const app_conf = readSubzeroAppConfig(),
+        isSubzeroCloudApp = app_conf.id !== undefined,
+        token = isSubzeroCloudApp?readToken():null,
+        runSqitchMigrations = dirExists(MIGRATIONS_DIR),
+        openresty_image_tag = options.openrestyImageTag,
+        buildOpenresty = dirExists(OPENRESTY_DIR) && app_conf.openresty_repo && openresty_image_tag,
+        appId = isSubzeroCloudApp?app_conf.id:null;
+
+  let   {dba, password} = options,
+        noOptionsSpecified = !dba || !password;
+
+  if(isSubzeroCloudApp){
+    const a = await getApplication(appId, token);
+    if(a.status !== 'ready'){
+      console.log("You can deploy only when the application status is 'ready'")
+      console.log(`Current application status: ${a.status}`.red)
+      process.exit(0);
+    }
+  }
+  if(runSqitchMigrations){
+    checkMigrationsInitiated();
+  }
+  if(buildOpenresty){
+    checkOpenrestyInitiated()
+  }
+  if(runSqitchMigrations && noOptionsSpecified){
+    let answers = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'dba',
+        message: "Enter the database administrator account",
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      },
+      {
+        type: 'password',
+        name: 'password',
+        message: 'Enter the database administrator account password',
+        mask: '*',
+        validate: val => notEmptyString(val)?true:"Cannot be empty"
+      }
+    ]);
+    dba = answers.dba;
+    password = answers.password;
+    
+  }
+
+  if ( runSqitchMigrations ){
+    if(!notEmptyString(dba) || !notEmptyString(password)){
+      console.log("dba/password: cannot be empty");
+      return
+    }
+  }
+
+  let pg_host = app_conf.db_host,
+      pg_port = app_conf.db_port,
+      pg_user = dba,
+      pg_pass = password
 
   if(runSqitchMigrations){
     checkPostgresConnection(`postgres://${pg_user}@${pg_host}:${pg_port}/${app_conf.db_name}`, pg_pass);
   }
 
   if(buildOpenresty){
-    console.log("Building and deploying openresty container");
-    if(usingSubzeroCloudRegistry)
+    console.log("Building openresty container image" );
+    if(isSubzeroCloudApp){
       await loginToDocker(token);
-    runCmd("docker", ["build", "-t", "openresty", "./openresty"], {}, false, true);
-    runCmd("docker", ["tag", "openresty", `${app_conf.openresty_repo}:${app_conf.version}`], {}, false, true);
-    runCmd("docker", ["push", `${app_conf.openresty_repo}:${app_conf.version}`], {}, false, true);
+    }
+    runCmd("docker", ["build", "-t", `${COMPOSE_PROJECT_NAME}/openresty:${openresty_image_tag}`, "./openresty"], {}, false, true);
+    runCmd("docker", ["tag", `${COMPOSE_PROJECT_NAME}/openresty:${openresty_image_tag}`, `${app_conf.openresty_repo}:${openresty_image_tag}`], {}, false, true);
   }
   else{
-    console.log("Skipping OpenResty image building")
+    console.log("Skipping OpenResty image building:")
+    if(!dirExists(OPENRESTY_DIR)){
+      console.log(`\t${OPENRESTY_DIR} folder does not exist`)
+    }
+    if(!app_conf.openresty_repo){
+      console.log(`\t'openresty_repo' field not set in ${SUBZERO_APP_FILE}`)
+    }
+    
+    if(!openresty_image_tag){
+      console.log('\t--openresty-image-tag flag not set')
+    }
   }
 
   if(runSqitchMigrations){
-    console.log("Deploying migrations with sqitch");
+    console.log("Deploying database migrations with sqitch");
     migrationsDeploy(pg_user, pg_pass, pg_host, pg_port, app_conf.db_name);
   }
   else{
-    console.log("Skipping database migration deploy")
+    console.log("Skipping database migrations deploy:")
+    console.log(`\t${MIGRATIONS_DIR} folder does not exist`)
   }
 
-  if(usingSubzeroCloudRegistry){
-    console.log(`Changing ${app_conf.name} application version to ${app_conf.version}`);
+  if(buildOpenresty){
+    console.log("Pushing openresty container image to:\n" + app_conf.openresty_repo );
+    runCmd("docker", ["push", `${app_conf.openresty_repo}:${openresty_image_tag}`], {}, false, true);
+  }
+  if(isSubzeroCloudApp){
+    console.log(`Deploying ${app_conf.name} application to subzero.cloud`);
+    if(openresty_image_tag){
+      app_conf['openresty_image_tag'] = openresty_image_tag;
+      saveSubzeroAppConfig(app_conf);
+    }
     updateApplication(appId, token, app_conf);
+  }
+  else {
+    console.log("All application components have been deployed")
+    console.log("You should restart your production contianers now")
   }
 }
 
@@ -394,10 +369,18 @@ const updateApplication = (id, token, app) => {
       else if(res.status == 401)
         console.log(JWT_EXPIRED_ERROR);
       else
-        console.log("%s".red, res.body.message);
+        printApiError(res.body);
     });
 }
 
+const printApiError = (err) => {
+  console.log(
+    "%s\n%s\n%s".red, 
+    err.message?err.message:'',
+    err.hint?err.hint:'',
+    err.details?err.details:'',
+    );
+}
 const loginToDocker = async (token) => {
   console.log("Logging in to registry.subzero.cloud");
   const res = await request
@@ -407,42 +390,30 @@ const loginToDocker = async (token) => {
   if(res.ok){
     console.log(proc.execSync(res.text).toString('utf8').green);
   }else{
-    console.log("%s".red, res.body.message);
+    printApiError(res.body);
     process.exit(0);
   }
 
 }
 
-const migrationsDeploy = (user, pass, host, port, db) => {
-  sqitchDeploy(`db:pg://${user}:${pass}@${host}:${port}/${db}`);
+const getApplicationId = async () => {
+  let id =  fileExists(SUBZERO_APP_FILE) ? readSubzeroAppId() : null;
+  if(!id){
+    const answers = await inquirer.prompt([
+      {
+        type: 'input',
+        message: "Application id",
+        name: 'id',
+        validate: val => notEmptyString(val)?true:"Application id can not be an empty string"
+      }
+    ]);
+    id = answers.id
+  }
+  return id
 }
 
-const digSrv = (serviceHost, failOnError = true) => {
-  try{
-    let srv = proc.execSync(`dig +short srv ${serviceHost}`).toString('utf8').trim().split(" ");
-    if(srv.length == 4)
-      return {
-        host : srv[3].slice(0, -1),
-        port : srv[2]
-      };
-    else{
-      if(failOnError){
-        console.log(`Couldn't get SRV record from ${serviceHost}`.red);
-        process.exit(0);
-      }
-    }
-    
-  }catch(e){
-    if(failOnError){
-      console.log(e.stdout.toString('utf8'));
-      process.exit(0);
-    }
-  }
-
-  return {
-    host : '',
-    port : ''
-  };
+const migrationsDeploy = (user, pass, host, port, db) => {
+  sqitchDeploy(`db:pg://${user}:${pass}@${host}:${port}/${db}`);
 }
 
 const descriptions = {
@@ -453,12 +424,7 @@ const descriptions = {
 
 const printAppWithDescription = app => {
   let rows = [];
-  if(app.db_location === 'container'){
-    let db_host_port = digSrv(app.db_service_host, false);
-    app.db_host = db_host_port.host;
-    app.db_port = db_host_port.port;
-  }
-  Object.keys(app).map( x => rows.push([ x, app[x] + "\n" + (descriptions[x]||'')]));
+  Object.keys(app).map( x => rows.push([ x, app[x] + "\n" + (descriptions[x]||'').grey]));
   let table = new Table([
       { value: "Property", align: 'left', headerAlign: 'left' },
       { value: "Value", width: 80, align: 'left', headerAlign: 'left'}
@@ -466,44 +432,21 @@ const printAppWithDescription = app => {
   console.log(table.render().toString());
 }
 
-program.command('signup')
-  .description('Create your account on subzero')
-  .action(() => {
-    inquirer.prompt([
-      {
-        type: 'input',
-        message: "Enter your invite code",
-        name: 'invite',
-        validate: val => validator.isUUID(val)?true:"Please enter a valid invite code"
-      },
-      {
-        type: 'input',
-        message: "Enter your name",
-        name: 'name',
-        validate: val => notEmptyString(val)?true:"Please enter your name"
-      },
-      {
-        type: 'input',
-        message: "Enter your email",
-        name: 'email',
-        validate: val => validator.isEmail(val)?true:"Please enter a valid email"
-      },
-      {
-        type: 'password',
-        message: 'Enter your password',
-        name: 'password',
-        mask: '*',
-        validate: val => notEmptyString(val)?true:"Please enter your password"
-      }
-    ]).then(answers => signup(answers.name, answers.email, answers.password, answers.invite));
-  });
+const getApplicationConfig = app => {
+  delete app['status'];
+  delete app['task_instances'];
+  delete app['created_on'];
+  delete app['updated_on'];
+  return JSON.stringify(app, null, 4);
+}
+
 program.command('login')
-  .option("-e, --email [email]", "Your email")
-  .option("-p, --password [password]", "Your password")
+  .option("-e, --email <email>", "Your email (or set SUBZERO_EMAIL env var)")
+  .option("-p, --password <password>", "Your password (or set SUBZERO_PASSWORD env var)")
   .description('Login to subzero')
   .action(options => {
-    const email = options.email;
-    const password = options.password;
+    const email = options.email || process.env.SUBZERO_EMAIL;
+    const password = options.password || process.env.SUBZERO_PASSWORD;
     if(!email && !password)
       inquirer.prompt([
         {
@@ -529,333 +472,73 @@ program.command('login')
         login(email, password);
     }
   });
+
 program.command('logout')
   .description('Logout from subzero')
   .action(() => logout());
+
+program.command('get-docker-login')
+  .description('authenticate your Docker client to subzero registry')
+  .action(() => loginToDocker(readToken()));
+
 program.command('list')
   .description('List your applications on subzero')
   .action(() => listApplications(readToken(), apps => {
     printApps(apps);
   }));
-program.command('app-create')
-  .description('Create an application on subzero')
-  .action(() => {
-    if(fileExists(SUBZERO_APP_FILE)){
-      console.log("Error: ".red + `There is a ${SUBZERO_APP_FILE} file already in place for this project`);
-      process.exit(0);
-    }
-    checkIsAppDir();
-    let token = readToken(),
-        env = loadEnvFile();
-    inquirer.prompt([
-      {
-        type: 'input',
-        name: 'name',
-        message: 'Enter your application name',
-        default: COMPOSE_PROJECT_NAME,
-        validate: val => notEmptyString(val)?true:"Cannot be empty"
-      },
-      {
-        type: 'input',
-        name: 'domain',
-        message: 'Enter your domain (ex: myapp.subzero.cloud or myappdomain.com)',
-        validate: val => validator.isFQDN(val)?true:"Must be valid domain name"
-      },
-      {
-        type: 'confirm',
-        message: "Do you to enable SSL for your domain (you'll need your certificate and private key in PEM format)?",
-        name: 'uploadCertificate',
-        when: answers => !answers.domain.match(/^[a-z0-9]+\.subzero\.cloud$/)
-      },
-      // generate self signed with
-      // openssl req -nodes -sha1 -x509 -newkey rsa:2048 -keyout key.pem -out certificate.pem -days 3650 -subj "/C=US/ST=Oregon/L=Portland/O=Company Name/OU=Org/CN=myappdomain.com"
-      {
-        type: 'input',
-        message: "Enter the the path to your certificate file",
-        name: 'certificate_file',
-        default: 'certificate.pem',
-        when: answers => answers.uploadCertificate,
-        validate: val => (notEmptyString(val) && fileExists(val)) ? true : `Can not open file ${val}`
-      },
-      {
-        type: 'input',
-        message: "Enter the the path to your private key file",
-        name: 'certificate_private_key_file',
-        default: 'key.pem',
-        when: answers => answers.uploadCertificate,
-        validate: val => (notEmptyString(val) && fileExists(val)) ? true : `Can not open file ${val}`
-      },
-      {
-        type: 'list',
-        name: 'db_location',
-        message: "Would you like subzero to create a database for you?",
-        choices: [
-          {
-            name: 'Yes (db running in container, for light use)',
-            value: 'container'
-          },
-          {
-            name: "No, I'll provide my own database (recommened RDS in us-east-1)",
-            value: 'external'
-          }
-        ]
-      },
-      {
-        type: 'input',
-        name: 'db_admin',
-        message: 'Enter the database administrator account',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_admin,
-        when: answers => answers.db_location == "container"
-      },
-      {
-        type: 'password',
-        name: 'db_admin_pass',
-        message: 'Enter the database administrator account password (8 chars minimum)',
-        mask: '*',
-        validate: val => {
-          if(notEmptyString(val)){
-            if(val.length >= 8)
-              return true;
-            else
-              return "Must be 8 chars minimum";
-          }else
-            return "Cannot be empty";
-        },
-        when: answers => answers.db_location == "container"
-      },
-      {
-        type: 'input',
-        name: 'db_host',
-        message: 'Enter the db host',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_host,
-        when: answers => answers.db_location == "external"
-      },
-      {
-        type: 'input',
-        name: 'db_port',
-        message: 'Enter the db port',
-        validate: val => {
-          if(isNaN(val))
-            return "Must be a number";
-          else if(!(1024 < parseInt(val) && parseInt(val) < 65535))
-            return "Must be a valid port number";
-          else
-            return true;
-        },
-        default: env.db_port,
-        when: answers => answers.db_location == "external"
-      },
-      {
-        type: 'input',
-        name: 'db_name',
-        message: 'Enter the db name',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_name
-      },
 
-      {
-        type: 'input',
-        name: 'db_authenticator',
-        message: 'Enter the db authenticator role',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_authenticator
-      },
-      {
-        type: 'password',
-        name: 'db_authenticator_pass',
-        message: 'Enter the db authenticator role password (8 chars minimum)',
-        mask: '*',
-        when: answers => answers.db_location == "container",
-        validate: val => {
-          if(notEmptyString(val)){
-            if(val.length >= 8)
-              return true;
-            else
-              return "Must be 8 chars minimum";
-          }else
-            return "Cannot be empty";
-        }
-      },
-      {
-        type: 'password',
-        name: 'db_authenticator_pass',
-        message: 'Enter the db authenticator role password',
-        mask: '*',
-        when: answers => answers.db_location == "external",
-        validate: (val, answers) => {
-          if(notEmptyString(val)){
-            let pg_host = answers.db_host,
-                pg_port = answers.db_port,
-                pg_user = answers.db_authenticator,
-                pg_pass = val,
-                pg_db_name = answers.db_name;
-            return checkPostgresConnection(`postgres://${pg_user}@${pg_host}:${pg_port}/${pg_db_name}`, pg_pass, false);
-          }else
-            return "Cannot be empty";
-        }
-      },
-      {
-        type: 'input',
-        name: 'db_schema',
-        message: 'Enter the db schema exposed for API',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_schema
-      },
-      {
-        type: 'input',
-        name: 'db_anon_role',
-        message: 'Enter the db anonymous role',
-        validate: val => notEmptyString(val)?true:"Cannot be empty",
-        default: env.db_anon_role
-      },
-      {
-        type: 'password',
-        name: 'jwt_secret',
-        message: 'Enter your jwt secret (32 chars minimum)',
-        validate: val => {
-          if(notEmptyString(val)){
-            if(val.length >= 32)
-              return true;
-            else
-              return "Must be 32 chars minimum";
-          }else
-            return "Cannot be empty";
-        },
-        mask : '*'
-      },
-      {
-        type: 'confirm',
-        message: "Use custom OpenRestyImage",
-        name: 'openresty_image_type',
-        default: fileExists(`${OPENRESTY_DIR}/Dockerfile`)
-      }
-    ]).then(answers => {
-
-      answers.openresty_image_type = answers.openresty_image_type?'custom':'default';
-
-      let app = answers;
-      inquirer.prompt([
-        {
-          type: 'confirm',
-          message: "Are you sure you want to create this application?",
-          name: 'createIt'
-        }
-      ]).then(answers => {
-        if(answers.createIt)
-          createApplication(token, app, conf => saveSubzeroAppConfig(conf));
-        else
-          console.log("No application created");
-      });
-    });
-  });
-program.command('app-delete')
-  .description('Delete a subzero application')
-  .action(() => {
-    checkIsAppDir();
-    let token = readToken(),
-        id = readSubzeroAppId();
-
-    getApplication(id, token, app => {
-      printAppWithDescription(app);
-      if(app.db_location == "container")
-        console.log("\nWarning: this will also delete the database".yellow);
-      inquirer.prompt([
-        {
-          type: 'confirm',
-          message: "Are you sure you want to delete this application?",
-          name: 'deleteIt',
-          default: false
-        }
-      ]).then(answers => {
-        if(answers.deleteIt){
-          deleteApplication(id, token);
-          fs.unlinkSync(SUBZERO_APP_FILE);
-        }
-        else{
-          console.log("No application deleted");
-        }
-      });
-    });
-  });
-program.command('app-deploy')
-  .option("-a, --dba [dba]", "Database administrator account(only needed for external db)")
-  .option("-p, --password [password]", "Database administrator account password")
+program.command('deploy')
+  .option("-a, --dba <dba>", "Database administrator account(only needed for external db)")
+  .option("-p, --password <password>", "Database administrator account password")
+  .option("-t, --openresty-image-tag <tag>", "Tag for the new openresty image")
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
-  .action(options => {
+  .action(async options => {
     checkIsAppDir();
-    const app_conf = readSubzeroAppConfig(),
-          usingSubzeroCloudRegistry = app_conf.openresty_repo && app_conf.openresty_repo.startsWith("registry.subzero.cloud"),
-          token = usingSubzeroCloudRegistry?readToken():null,
-          appId = usingSubzeroCloudRegistry?readSubzeroAppId():null,
-          runSqitchMigrations = dirExists(`${APP_DIR}/db`),
-          buildOpenresty = !app_conf.openresty_image_type || app_conf.openresty_image_type === 'custom',
-          dbIsExternal = app_conf.db_location == "external",
-          {dba, password} = options,
-          noOptionsSpecified = !dba && !password;
-    if(runSqitchMigrations){
-      checkMigrationsInitiated();
-    }
-    if(buildOpenresty){
-      checkOpenrestyInitiated()
-    }
-    if(noOptionsSpecified){
-      inquirer.prompt([
-        {
-          type: 'input',
-          name: 'db_admin',
-          message: "Enter the database administrator account",
-          validate: val => notEmptyString(val)?true:"Cannot be empty",
-          when: () => (dbIsExternal && runSqitchMigrations && !app_conf.db_admin),
-        },
-        {
-          type: 'password',
-          name: 'db_admin_pass',
-          message: 'Enter the database administrator account password',
-          mask: '*',
-          when: () => runSqitchMigrations,
-          validate: val => notEmptyString(val)?true:"Cannot be empty"
-        }
-      ]).then(answers => {
-        deployApplication(appId, app_conf, answers.db_admin, answers.db_admin_pass, token, buildOpenresty, runSqitchMigrations, usingSubzeroCloudRegistry);
-      });
-    }else{
-      if(dbIsExternal && !notEmptyString(dba))
-        console.log("dba: cannot be empty");
-
-      if(!notEmptyString(password))
-        console.log("password: cannot be empty");
-      else
-        deployApplication(appId, app_conf, dba, password, token, buildOpenresty, runSqitchMigrations, usingSubzeroCloudRegistry);
-  }
+    deployApplication(options);
   });
 
-program.command('app-status')
-  .description('Show status and properties of a subzero application')
-  .action(() => {
-    checkIsAppDir();
+program.command('create-config')
+  .description('Create a subzero app config so that this project can be deployed to subzero.cloud')
+  .option("-i, --id <id>", "application id")
+  .action(async options => {
+    checkIsAppDir()
     let token = readToken(),
-        id = readSubzeroAppId();
+        id =  options.id,
+        as_json = options.json;
+    if(! id){
+      id = await getApplicationId();
+    }
+    getApplication(id, token, app => {
+        saveSubzeroAppConfig(app);
+    });
+  });
+
+program.command('describe')
+  .description('Show status and properties of a subzero application')
+  .option("-i, --id <id>", "application id")
+  .action(async options => {
+    let token = readToken(),
+        id =  options.id
+    if(! id){
+      id = await getApplicationId();
+    }
     getApplication(id, token, app => {
       printAppWithDescription(app);
     });
   });
-program.command('app-start')
-  .description('Start a subzero application')
-  .action(() => {
-    checkIsAppDir();
+
+program.command('reload-db-schema')
+  .description('Reload database schema')
+  .option("-i, --id <id>", "application id")
+  .action(async options => {
     let token = readToken(),
-        id = readSubzeroAppId();
-    changeApplicationInstances(id, token, 1);
+        id =  options.id;
+    if(! id){
+      id = await getApplicationId();
+    }
+    reloadDatabaseSchema(id, token);
   });
-program.command('app-stop')
-  .description('Stop a subzero application')
-  .action(() => {
-    checkIsAppDir();
-    let token = readToken(),
-        id = readSubzeroAppId();
-    changeApplicationInstances(id, token, 0);
-  });
+
+
 
 program.parse(process.argv);

@@ -231,7 +231,7 @@ program
 
 program
   .command('add <name>')
-  .option("-n, --note [note]", "Add sqitch migration note")
+  .option("-n, --note <note>", "Add sqitch migration note")
   .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
   .description('Adds a new sqitch migration')
   .action((name, options) => {
