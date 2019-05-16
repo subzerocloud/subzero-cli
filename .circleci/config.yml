@@ -7,25 +7,31 @@ jobs:
       - image: circleci/node:8.9.1
     steps:
       - checkout
+      - run: mkdir -p /tmp/workspace
       - restore_cache:
           keys: 
-            - npm-dependencies-{{ checksum "package.json" }}
+            - v1-npm-dependencies-{{ checksum "package.json" }}
       - run: npm install
       - run: npm run build
       - save_cache:
           paths:
             - node_modules
-            - dist
-          key: npm-dependencies-{{ checksum "package.json" }}
+          key: v1-npm-dependencies-{{ checksum "package.json" }}
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - "dist/*"
 
   release:
     docker:
       - image: circleci/node:8.9.1
     steps:
+      - attach_workspace:
+          at: /tmp/workspace
       - checkout
       - restore_cache:
           keys: 
-            - npm-dependencies-{{ checksum "package.json" }}
+            - v1-npm-dependencies-{{ checksum "package.json" }}
       - setup_remote_docker
       - run:
           name: build and push subzero-cli-tools docker images
@@ -33,17 +39,22 @@ jobs:
             docker login -u $DOCKER_USER -p $DOCKER_PASS
             docker build --build-arg APGDIFF_VERSION=2.6.0 -t subzero-cli-tools .
             docker tag subzero-cli-tools subzerocloud/subzero-cli-tools:$CIRCLE_TAG
-            docker push subzerocloud/subzero-cli-tools:$CIRCLE_TAG
             docker tag subzero-cli-tools subzerocloud/subzero-cli-tools:latest
-            docker push subzerocloud/subzero-cli-tools:latest
-      
+
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - run:
+          name: Move files from workspace
+          command: |
+            mkdir -p dist
+            mv /tmp/workspace/dist dist
       - run: 
           name: Publish
           command: |
-            [ -d dist ] && npm publish
+            [ -f dist/subzero.js ] && npm publish
+            docker push subzerocloud/subzero-cli-tools:$CIRCLE_TAG
+            docker push subzerocloud/subzero-cli-tools:latest
       
 
 workflows:
