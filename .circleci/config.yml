@@ -1,0 +1,56 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: circleci/node:8.9.1
+    steps:
+      - checkout
+      - restore_cache:
+          keys: npm-dependencies-{{ checksum "package.json" }}
+      - run: npm install
+      - run: npm build
+      - save_cache:
+          paths:
+            - node_modules
+          key: v2-npm-dependencies-{{ checksum "package.json" }}
+
+  release:
+    docker:
+      - image: circleci/node:8.9.1
+    steps:
+      - checkout
+      - restore_cache:
+          keys: npm-dependencies-{{ checksum "package.json" }}
+      - setup_remote_docker
+      - run:
+          name: build and push subzero-cli-tools docker images
+          command: |
+            docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+            docker build --build-arg APGDIFF_VERSION=2.6.0 -t subzero-cli-tools .
+            docker tag subzero-cli-tools subzerocloud/subzero-cli-tools:$CIRCLE_TAG
+            docker push subzerocloud/subzero-cli-tools:$CIRCLE_TAG
+            docker tag subzero-cli-tools subzerocloud/subzero-cli-tools:latest
+            docker push subzerocloud/subzero-cli-tools:latest
+      
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+      - run: npm publish
+
+workflows:
+  version: 2
+  build-and-release:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*/
+      - release:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /v[0-9]+(\.[0-9]+)*/
+            branches:
+              ignore: /.*/
