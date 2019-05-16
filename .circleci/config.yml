@@ -11,10 +11,11 @@ jobs:
           keys: 
             - npm-dependencies-{{ checksum "package.json" }}
       - run: npm install
-      - run: npm build
+      - run: npm run build
       - save_cache:
           paths:
             - node_modules
+            - dist
           key: v2-npm-dependencies-{{ checksum "package.json" }}
 
   release:
