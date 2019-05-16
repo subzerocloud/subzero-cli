@@ -16,7 +16,7 @@ jobs:
           paths:
             - node_modules
             - dist
-          key: v2-npm-dependencies-{{ checksum "package.json" }}
+          key: npm-dependencies-{{ checksum "package.json" }}
 
   release:
     docker:
@@ -40,7 +40,8 @@ jobs:
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-      - run: npm publish
+      - run: [ -d dist ] && npm publish
+      
 
 workflows:
   version: 2
