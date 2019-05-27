@@ -7,7 +7,6 @@ jobs:
       - image: circleci/node:8.9.1
     steps:
       - checkout
-      - run: mkdir -p /tmp/workspace
       - restore_cache:
           keys: 
             - v1-npm-dependencies-{{ checksum "package.json" }}
@@ -18,7 +17,7 @@ jobs:
             - node_modules
           key: v1-npm-dependencies-{{ checksum "package.json" }}
       - persist_to_workspace:
-          root: /tmp/workspace
+          root: .
           paths:
             - "dist/*"
 
@@ -48,7 +47,7 @@ jobs:
           name: Move files from workspace
           command: |
             mkdir -p dist
-            mv /tmp/workspace/dist dist
+            mv /tmp/workspace/dist .
       - run: 
           name: Publish
           command: |
