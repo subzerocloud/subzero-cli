@@ -37,9 +37,8 @@ export const PG_DUMPALL_CMD = process.env.PG_DUMP_CMD || 'pg_dumpall';
 export const MIGRATIONS_DIR = `${APP_DIR}/db/migrations`;
 export const OPENRESTY_DIR = `${APP_DIR}/openresty`;
 export const USE_DOCKER_IMAGE = process.env.USE_DOCKER_IMAGE || true;
-const LOCALHOST = 'localhost';
+export const LOCALHOST = 'localhost';
 export const DEV_DB_URI = process.env.DEV_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:${DB_PORT}/${DB_NAME}`
-export const PROD_DB_URI = process.env.PROD_DB_URI || `postgres://${SUPER_USER}:${SUPER_USER_PASSWORD}@${LOCALHOST}:5433/${DB_NAME}`
 const _IGNORE_ROLES = process.env.IGNORE_ROLES || `${SUPER_USER}, ${DB_USER}, postgres`
 export const IGNORE_ROLES = _IGNORE_ROLES.split(',').map(s => s.trim());
 export const DOCKER_APP_DIR = '/src';
