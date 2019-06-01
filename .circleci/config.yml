@@ -50,6 +50,7 @@ jobs:
             mv /tmp/workspace/dist .
       - run: 
           name: Publish
+          # This fails silently TODO!!! fix
           command: |
             [ -f dist/subzero.js ] && npm publish
             docker push subzerocloud/subzero-cli-tools:$CIRCLE_TAG
