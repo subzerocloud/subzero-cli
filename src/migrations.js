@@ -327,7 +327,7 @@ program
   .option("--debug", "Verbose output and leaves the temporary files (used to create the migration) in place")
   .option("--db-docker-image <image>", "DOcker image used for temp postgres")
   .description('Setup sqitch config and create the first migration')
-  .action((name, options) => { checkIsAppDir(); initMigrations(options.debug, options.dbDockerImage);});
+  .action((options) => { checkIsAppDir(); initMigrations(options.debug, options.dbDockerImage);});
 
 program
   .command('add <name>')
