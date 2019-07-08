@@ -88,7 +88,7 @@ const initMigrations = async (debug, dbDockerImage) => {
   fs.unlinkSync(`${TMP_DIR}/${migrationNumber}-revert-${name}.sql`)
 };
 
-const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImage) => {
+const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImage, diffRoles) => {
 
   if (!fs.existsSync(SQITCH_CONF) || !fs.statSync(SQITCH_CONF).isFile()){
     console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", SQITCH_CONF);
@@ -106,25 +106,28 @@ const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImag
     if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
     
     const {containerName: devDbcontainerName, dbUri: devDbUri, initSqlFile: devInitSqlFile} = await getTempPostgres(DB_DIR, debug, dbDockerImage);
-    const {containerName: prodDbcontainerName, dbUri: prodDbUri, initSqlFile: prodInitSqlFile} = await getTempPostgres(`${MIGRATIONS_DIR}/deploy`, debug, dbDockerImage);
-    
     const devDbContianerReady = waitForDbContainer(devDbcontainerName, devInitSqlFile, debug);
-    const prodDbContianerReady = waitForDbContainer(prodDbcontainerName, prodInitSqlFile, debug);
-    if(!devDbContianerReady || !prodDbContianerReady){
+    if(!devDbContianerReady){
       stopContainer(devDbcontainerName);
-      stopContainer(prodDbcontainerName);
       process.exit(-1); 
     }
-    dumpSchema(devDbUri, tmpDevSql);
+    dumpSchema(devDbUri, tmpDevSql, diffRoles);
+    stopContainer(devDbcontainerName);
+
     if(dbUri){
-      dumpSchema(dbUri, tmpProdSql);
+      dumpSchema(dbUri, tmpProdSql, diffRoles);
     }
     else{
-      dumpSchema(prodDbUri, tmpProdSql);
+      const {containerName: prodDbcontainerName, dbUri: prodDbUri, initSqlFile: prodInitSqlFile} = await getTempPostgres(`${MIGRATIONS_DIR}/deploy`, debug, dbDockerImage);
+      const prodDbContianerReady = waitForDbContainer(prodDbcontainerName, prodInitSqlFile, debug);
+      if(!prodDbContianerReady){
+        stopContainer(prodDbcontainerName);
+        process.exit(-1); 
+      }
+      dumpSchema(prodDbUri, tmpProdSql, diffRoles);
+      stopContainer(prodDbcontainerName);
     }
-    
-    stopContainer(devDbcontainerName);
-    stopContainer(prodDbcontainerName);
+   
     apgdiffToFile(tmpDevSql,
                   tmpProdSql,
                   tmpRevertSql);
@@ -267,13 +270,13 @@ const initSqitch = () => runCmd(SQITCH_CMD, ["init", DB_NAME, "--engine", "pg"],
 
 const addSqitchMigration = (name, note) => runCmd(SQITCH_CMD, ["add", name, "-n", note || `Add ${name} migration`], {cwd: MIGRATIONS_DIR})
 
-const dumpSchema = (dbUri, file) => {
+const dumpSchema = (dbUri, file, diffRoles) => {
   console.log(`Writing database dump to ${file}`);
   const replace_superuser = new RegExp(`GRANT ([a-z0-9_-]+) TO ${SUPER_USER}`, "gi");
-  runCmd(PG_DUMPALL_CMD, ['-f', `${file}.roles`, '--roles-only', '-d', dbUri]);
+  if(diffRoles)  { runCmd(PG_DUMPALL_CMD, ['-f', `${file}.roles`, '--roles-only', '-d', dbUri]); }
   runCmd(PG_DUMP_CMD, [dbUri, '-f', `${file}.schema`, '--schema-only']);
   let data = [
-		fs.readFileSync(`${file}.roles`, 'utf-8')
+		!diffRoles ? '' : fs.readFileSync(`${file}.roles`, 'utf-8')
       .split("\n")
       .filter(ln => IGNORE_ROLES.map(r => ln.indexOf('ROLE '+r)).every(p => p == -1) ) //filter out line referring to ignored roles
       .map(ln => ln.replace(` GRANTED BY ${SUPER_USER}`, '')) //remove unwanted string
@@ -288,7 +291,7 @@ const dumpSchema = (dbUri, file) => {
 
   ];
   fs.writeFileSync(file, data.join("\n"), 'utf-8');
-  fs.unlinkSync(`${file}.roles`);
+  if(diffRoles) { fs.unlinkSync(`${file}.roles`); }
   fs.unlinkSync(`${file}.schema`);
 }
 
@@ -333,14 +336,15 @@ program
   .command('add <name>')
   .option("-n, --note <note>", "Add sqitch migration note")
   .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
+  .option("--no-roles", "Do not include ROLE create/drop statements")
   .option("--dry-run", "Don not create migrations files, only output the diff")
   .option("--debug", "Verbose output and leaves the temporary files (used to create the migration) in place")
   .option("--db-uri <uri>", "Diff against a database schema (By default we diff src/ and migrations/deploy/ directories)")
-  .option("--db-docker-image <image>", "DOcker image used for temp postgres")
+  .option("--db-docker-image <image>", "Docker image used for temp postgres")
   .description('Adds a new sqitch migration')
   .action((name, options) => {
       checkIsAppDir();
-      addMigration(name, options.note, options.diff, options.dryRun, options.debug, options.dbUri, options.dbDockerImage);
+      addMigration(name, options.note, options.diff, options.dryRun, options.debug, options.dbUri, options.dbDockerImage, options.roles);
   });
 
 

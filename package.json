@@ -26,6 +26,7 @@
     "cli-highlight": "*",
     "colors": "*",
     "commander": "*",
+    "cookie": "*",
     "dotenv": "*",
     "inquirer": "*",
     "react": "*",
@@ -34,8 +35,7 @@
     "sleep": "*",
     "superagent": "*",
     "tty-table": "*",
-    "validator": "*",
-    "cookie": "*"
+    "validator": "*"
   },
   "devDependencies": {
     "babel-cli": "*",
