@@ -21,21 +21,21 @@
   },
   "dependencies": {
     "babel-runtime": "*",
-    "blessed": "git://github.com/subzerocloud/blessed",
-    "chokidar": "*",
+    "blessed": "git://github.com/subzerocloud/blessed.git",
+    "chokidar": "^3.0.2",
     "cli-highlight": "*",
     "colors": "*",
-    "commander": "*",
+    "commander": "^3.0.0",
     "cookie": "*",
-    "dotenv": "*",
-    "inquirer": "*",
-    "react": "*",
-    "react-blessed": "*",
-    "rimraf": "*",
+    "dotenv": "^8.1.0",
+    "inquirer": "^7.0.0",
+    "react": "^16.9.0",
+    "react-blessed": "^0.6.1",
+    "rimraf": "^3.0.0",
     "sleep": "*",
-    "superagent": "*",
-    "tty-table": "*",
-    "validator": "*"
+    "superagent": "^5.1.0",
+    "tty-table": "^2.7.4",
+    "validator": "^11.1.0"
   },
   "devDependencies": {
     "babel-cli": "*",
@@ -44,8 +44,8 @@
     "babel-preset-react": "*",
     "babel-preset-stage-0": "*",
     "babel-register": "*",
-    "react-devtools-core": "*",
-    "ws": "*"
+    "react-devtools-core": "^3.6.3",
+    "ws": "^7.1.2"
   },
   "repository": {
     "type": "git",
