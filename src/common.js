@@ -45,9 +45,11 @@ export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error 
         // docker is running in virtualbox VM so we try to adjust the path to match the shared path
         hostAppDir = '/' + hostAppDir.replace(/([A-Z]):/,function(s){return s.toLocaleLowerCase().replace(':','')}).replace(/\\/g,'/')
     }
-    let p = ['run', '--net', 'host', '--rm', '-w', w, '--env-file', `${APP_DIR}/.env`, '-v', `${hostAppDir}:${DOCKER_APP_DIR}`]
+    let ef = fileExists(`.env`) ? ['--env-file', `${APP_DIR}/.env`]:[]
+    let p = ['run', '--net', 'host', '--rm', '-w', w, '-v', `${hostAppDir}:${DOCKER_APP_DIR}`]
       .concat(e)
       .concat(u)
+      .concat(ef)
       .concat([DOCKER_IMAGE, cmd])
       .concat(params.map(v => v.replace(APP_DIR, DOCKER_APP_DIR)));
     cmd = 'docker';

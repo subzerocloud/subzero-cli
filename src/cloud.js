@@ -81,9 +81,18 @@ const readToken = () => {
       if(!token){
         console.log("Error: ".red + "No 'token' key in .subzero/credentials.json, please try to login again");
         process.exit(0);
-      } else
+      } else {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('ascii'))
+        const isExpired = Math.floor(new Date() / 1000) > payload.exp
+        if(isExpired){
+          fs.unlinkSync(SUBZERO_TOKEN_FILE);
+          console.log(JWT_EXPIRED_ERROR);
+          process.exit(0);
+        }
         return token;
+      }
     } catch(e) {
+      console.log(e)
       console.log("Error: ".red + "Invalid json in .subzero/credentials.json, please try to login again");
       process.exit(0);
     }
@@ -217,20 +226,21 @@ const getApplication = async (id, token, cb) => {
 }
 
 const reloadDatabaseSchema = (id, token) => {
-  request
-    .get(`${SERVER_URL}/rpc/reload_db_schema?id=eq.${id}`)
-    .set("Authorization", `Bearer ${token}`)
-    .end((err, res) => {
-      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
-      if(res.ok)
-        console.log("Database schema reloaded".green);
-      else if(res.status == 406)
-        console.log("No application with that id exists");
-      else if(res.status == 401)
-        console.log(JWT_EXPIRED_ERROR);
-      else
-        printApiError(res.body);
-    });
+  try {
+    const res = request
+      .get(`${SERVER_URL}/rpc/reload_db_schema?id=eq.${id}`)
+      .set("Authorization", `Bearer ${token}`)
+    if( res.ok ){
+      console.log("Database schema reloaded".green);
+    }
+    else if(res.status == 406)
+      console.log("No application with that id exists");
+    else
+      printApiError(res.body);
+  } catch (err) {
+    console.log("%s".red, err.toString());
+    return;
+  }
 }
 
 const deployApplication = async (options) => {
@@ -244,7 +254,8 @@ const deployApplication = async (options) => {
         appId = isSubzeroCloudApp?app_conf.id:null;
 
   let   {dba, password} = options,
-        noOptionsSpecified = !dba || !password;
+        noOptionsSpecified = !dba || !password,
+        migrationPushed = false;
 
   if(isSubzeroCloudApp){
     const a = await getApplication(appId, token);
@@ -319,34 +330,40 @@ const deployApplication = async (options) => {
     }
   }
 
+  if(buildOpenresty){
+    console.log("Pushing openresty container image to:\n" + app_conf.openresty_repo );
+    runCmd("docker", ["push", `${app_conf.openresty_repo}:${openresty_image_tag}`], {}, false, true);
+  }
+
+
   if(runSqitchMigrations){
     console.log("Deploying database migrations with sqitch");
     migrationsDeploy(pg_user, pg_pass, pg_host, pg_port, app_conf.db_name);
+    migrationPushed = true;
   }
   else{
     console.log("Skipping database migrations deploy:")
     console.log(`\t${MIGRATIONS_DIR} folder does not exist`)
   }
 
-  if(buildOpenresty){
-    console.log("Pushing openresty container image to:\n" + app_conf.openresty_repo );
-    runCmd("docker", ["push", `${app_conf.openresty_repo}:${openresty_image_tag}`], {}, false, true);
-  }
   if(isSubzeroCloudApp){
     console.log(`Deploying ${app_conf.name} application to subzero.cloud`);
     if(openresty_image_tag){
       app_conf['openresty_image_tag'] = openresty_image_tag;
       saveSubzeroAppConfig(app_conf);
     }
-    updateApplication(appId, token, app_conf);
+    if(migrationPushed && !openresty_image_tag){
+      await reloadDatabaseSchema(appId, token);
+    }
+    await updateApplication(appId, token, app_conf);
   }
   else {
     console.log("All application components have been deployed")
-    console.log("You should restart your production contianers now")
+    console.log("You should restart your production containers now")
   }
 }
 
-const updateApplication = (id, token, app) => {
+const updateApplication = async (id, token, app) => {
   delete app['id'];
   delete app['db_service_host'];
   delete app['openresty_repo'];
@@ -356,21 +373,22 @@ const updateApplication = (id, token, app) => {
     delete app['certificate_file'];
     delete app['certificate_private_key_file'];
   }
-  request
-    .patch(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
-    .send({...app})
-    .set("Authorization", `Bearer ${token}`)
-    .set("Prefer", "return=representation")
-    .set("Accept", "application/vnd.pgrst.object")
-    .end((err, res) => {
-      if(err && typeof res == 'undefined'){console.log("%s".red, err.toString());return;}
-      if(res.ok)
-        console.log("Application %s updated".green, res.body.id);
-      else if(res.status == 401)
-        console.log(JWT_EXPIRED_ERROR);
-      else
-        printApiError(res.body);
-    });
+  try {
+    const res = await request
+      .patch(`${SERVER_URL}/applications?select=id&id=eq.${id}`)
+      .send({...app})
+      .set("Authorization", `Bearer ${token}`)
+      .set("Prefer", "return=representation")
+      .set("Accept", "application/vnd.pgrst.object")
+    if( res.ok ){
+      console.log("Application %s updated".green, res.body.id);
+    }
+    else printApiError(res.body);
+
+  } catch (err) {
+    console.log("%s".red, err.toString());
+    return;
+  }
 }
 
 const printApiError = (err) => {
@@ -494,7 +512,7 @@ program.command('deploy')
   .description('Deploy a subzero application, this will run the latest migrations and push the latest openresty image')
   .action(async options => {
     checkIsAppDir();
-    deployApplication(options);
+    await deployApplication(options);
   });
 
 program.command('create-config')
@@ -536,7 +554,7 @@ program.command('reload-db-schema')
     if(! id){
       id = await getApplicationId();
     }
-    reloadDatabaseSchema(id, token);
+    await reloadDatabaseSchema(id, token);
   });
 
 

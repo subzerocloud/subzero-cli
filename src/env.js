@@ -17,7 +17,7 @@ if (fs.existsSync(cfg.path) && fs.statSync(cfg.path).isFile()) {
 }
 
 export const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
-export const APP_DIR = process.env.APP_DIR;
+export const APP_DIR = process.env.APP_DIR || process.cwd();
 export const ENV_FILE = process.env.ENV_FILE;
 export const SUPER_USER = process.env.SUPER_USER;
 export const SUPER_USER_PASSWORD = process.env.SUPER_USER_PASSWORD;

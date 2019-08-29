@@ -347,6 +347,16 @@ program
       addMigration(name, options.note, options.diff, options.dryRun, options.debug, options.dbUri, options.dbDockerImage, options.roles);
   });
 
+program
+  .command('sqitch')
+  .description('run embeded sqitch')
+  .allowUnknownOption()
+  .action( () => {
+    const sqitchParamas = process.argv.slice(process.argv.indexOf('sqitch')+1);
+    runCmd(SQITCH_CMD, sqitchParamas, {cwd: process.cwd()})
+  }).on('--help', function() {
+    runCmd(SQITCH_CMD, ['--help'], {cwd: process.cwd()})
+  });
 
 program
   .command('deploy <url>')
@@ -356,5 +366,7 @@ program
     checkMigrationsInitiated();
     sqitchDeploy(url);
   });
+
+
 
 program.parse(process.argv);

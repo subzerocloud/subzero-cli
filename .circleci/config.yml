@@ -36,7 +36,7 @@ jobs:
           name: build and push subzero-cli-tools docker images
           command: |
             docker login -u $DOCKER_USER -p $DOCKER_PASS
-            docker build --build-arg APGDIFF_VERSION=2.6.2 -t subzero-cli-tools .
+            docker build --build-arg APGDIFF_VERSION=2.6.4 -t subzero-cli-tools .
             docker tag subzero-cli-tools subzerocloud/subzero-cli-tools:$CIRCLE_TAG
             docker tag subzero-cli-tools subzerocloud/subzero-cli-tools:latest
 

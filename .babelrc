@@ -1,9 +1,11 @@
 {
-	"presets": ["env", "stage-0", "react"],
+	"presets": [[
+		"@babel/preset-env", {
+			"targets": {
+				"node":true
+			}
+		}], "@babel/preset-react"],
 	"plugins": [
-		["transform-runtime", {
-		  "polyfill": false,
-		  "regenerator": true
-		}]
+		"@babel/plugin-proposal-class-properties",
 	]
 }
