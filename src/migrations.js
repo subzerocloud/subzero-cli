@@ -67,7 +67,7 @@ const initMigrations = async (debug, dbDockerImage) => {
     stopContainer(devDbcontainerName);
     process.exit(-1); 
   }
-  dumpSchema(devDbUri, `${TMP_DIR}/${migrationNumber}-dev-${name}.sql`);
+  dumpSchema(devDbUri, `${TMP_DIR}/${migrationNumber}-dev-${name}.sql`, true);
   stopContainer(devDbcontainerName);
   fs.closeSync(fs.openSync(`${TMP_DIR}/${migrationNumber}-prod-${name}.sql`, 'w'));
 
