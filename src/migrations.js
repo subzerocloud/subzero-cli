@@ -318,9 +318,15 @@ const apgdiffToFile = (file1, file2, destFile) => {
 const getPgVersion = (dbUri) =>{
   const env = Object.create( process.env ),
         result = runCmd(PSQL_CMD, ['--quiet', '--tuples-only', '-c', 'show server_version', dbUri], { env: env }, true, false).stdout.toString().trim();
-  let pgVersion = '11.3';
+
+  if(result == ''){
+    console.log("WARNING: Couldn't determine Postgres version, defaulting to 11.3.")
+    return '11.3';
+  }
+
+  let pgVersion = result;
   if(result.indexOf(' ') !== -1){
-    pgVersion = result.substr(0, result.indexOf(' ')); 
+    pgVersion = result.substr(0, result.indexOf(' '));
   }
   return pgVersion;
 }
