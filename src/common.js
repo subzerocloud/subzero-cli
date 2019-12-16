@@ -21,6 +21,7 @@ import {
   SUPER_USER_PASSWORD,
   DB_NAME,
   DB_DIR,
+  DB_PORT,
   COMPOSE_PROJECT_NAME,
   WATCH_PATTERNS
 } from './env.js';
@@ -145,7 +146,7 @@ export const resetDb = (containers, logger) => {
 const sendHUP = containerName => proc.spawn('docker',['kill', '-s', 'HUP', containerName]);
 
 const runSql = commands => {
-  const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR, '--set', 'ON_ERROR_STOP=1']
+  const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '-p', DB_PORT, '--set', 'DIR='+DB_DIR, '--set', 'ON_ERROR_STOP=1']
   var env = Object.create( process.env );
   env.PGPASSWORD = SUPER_USER_PASSWORD;
   env.DIR = DB_DIR;
