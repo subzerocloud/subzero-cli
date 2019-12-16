@@ -213,6 +213,7 @@ const getTempPostgres = async (sqlDir, debug, dbDockerImage) => {
           "-e", `DEVELOPMENT=${process.env.DEVELOPMENT}`,
           "-e", `JWT_SECRET=${process.env.JWT_SECRET}`,
           "-v", `${sqlDir}:/docker-entrypoint-initdb.d`,
+          "--env-file", `${APP_DIR}/.env`,
           pgDockerImage
         ]
   if(debug){
