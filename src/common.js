@@ -135,7 +135,7 @@ export const resetDb = (containers, logger) => {
   ], false);
   let err = decoder.write(recreatedb.stderr).trim();
   if(err.length>0) logger.log(err);
-  const psql = runSql( [DB_NAME, '-f', DB_DIR +'init.sql' ], false)
+  const psql = runSql( [DB_NAME, '-f', DB_DIR +'/init.sql' ], false)
   err = decoder.write(psql.stderr).trim();
   if(err.length>0) logger.log(err);
   if(psql.status == 0){
@@ -155,7 +155,7 @@ export const resetDb = (containers, logger) => {
 const sendHUP = (containerName, signal = 'HUP') => proc.spawn('docker',['kill', '-s', signal, containerName]);
 
 const runSql = (commands, use_async = true) => {
-  const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR, '--set', 'ON_ERROR_STOP=1']
+  const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR+'/', '--set', 'ON_ERROR_STOP=1']
   var env = Object.create( process.env );
   env.PGPASSWORD = SUPER_USER_PASSWORD;
   env.DIR = DB_DIR;

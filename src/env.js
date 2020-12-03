@@ -20,6 +20,7 @@ export const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
 export const FILTER_DB_APP_NAME = process.env.FILTER_DB_APP_NAME?new RegExp(process.env.FILTER_DB_APP_NAME):null;
 export const HIDE_DB_LOG_LINE = process.env.HIDE_DB_LOG_LINE?new RegExp(process.env.HIDE_DB_LOG_LINE):null
 export const DB_CONTAIENR_NAME = process.env.DB_CONTAIENR_NAME || 'db';
+export const DEFAULT_MIGRATIONS_PRIVILEGES_FILE = process.env.DEFAULT_MIGRATIONS_PRIVILEGES_FILE || null;
 export const DB_LOG_LINE_MARKER = process.env.DB_LOG_LINE_MARKER;
 export const SQL_DIFF_TOOL = process.env.SQL_DIFF_TOOL || 'apgdiff';
 export const APP_DIR = process.env.APP_DIR || process.cwd();
@@ -52,9 +53,10 @@ export const IGNORE_ROLES = _IGNORE_ROLES.split(',').map(s => s.trim());
 export const DOCKER_APP_DIR = '/src';
 export const DOCKER_IMAGE = process.env.DOCKER_IMAGE || ('subzerocloud/subzero-cli-tools:'+version)
 export const DOCKER_MIGRATIONS_DIR = `${DOCKER_APP_DIR}/db/migrations`;
-export const DB_DIR = process.env.DB_DIR || `${APP_DIR}/db/src/`;
+export const DB_DIR = process.env.DB_DIR || `${APP_DIR}/db/src`;
 export const WATCH_PATTERNS = process.env.WATCH_PATTERNS
                ? process.env.WATCH_PATTERNS.split(',').map(p => APP_DIR + '/' + p)
                : [APP_DIR +'/db/src/**/*.sql', APP_DIR + '/openresty/**/*.lua', APP_DIR +'/openresty/**/*.conf'];
 export const PLATFORM = os.platform();
 export const DOCKER_HOST_OS = USE_DOCKER_IMAGE ? proc.execSync('docker info -f "{{ .OSType}}"').toString('utf8').trim() : null;
+export const PG_VERSION = process.env.PG_VERSION ? process.env.PG_VERSION : null;
