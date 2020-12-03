@@ -22,16 +22,18 @@ import {
   DB_NAME,
   DB_DIR,
   COMPOSE_PROJECT_NAME,
-  WATCH_PATTERNS
+  WATCH_PATTERNS,
+  MIGRA_CMD
 } from './env.js';
 
-export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error = false, use_async = false) => {
-  if(USE_DOCKER_IMAGE && [PSQL_CMD, SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD].indexOf(cmd) !== -1){
+export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error = false, use_async = false, stdio) => {
+  if(USE_DOCKER_IMAGE && [PSQL_CMD, SQITCH_CMD, PG_DUMP_CMD, PG_DUMPALL_CMD, JAVA_CMD, MIGRA_CMD].indexOf(cmd) !== -1){
     //alter the command to run in docker
+    let app_dir_regexp = new RegExp(APP_DIR, 'g');
     let w = (options && options.cwd) ? options.cwd.replace(APP_DIR, DOCKER_APP_DIR) : DOCKER_APP_DIR;
     let e = (options && options.env) ? Object.keys(options.env).reduce(function(acc, key) {
       acc.push('-e')
-      acc.push(key + '=' + options.env[key].replace(APP_DIR, DOCKER_APP_DIR)); 
+      acc.push(key + '=' + options.env[key].replace(app_dir_regexp, DOCKER_APP_DIR)); 
       return acc;
     }, []):[];
     let u = [],
@@ -51,15 +53,16 @@ export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error 
       .concat(u)
       .concat(ef)
       .concat([DOCKER_IMAGE, cmd])
-      .concat(params.map(v => v.replace(APP_DIR, DOCKER_APP_DIR)));
+      .concat(params.map(v => v.replace(app_dir_regexp, DOCKER_APP_DIR)));
     cmd = 'docker';
     params = p;
   }
 
   if( !(silent || use_async) ){
-    options.stdio = [ 'ignore', 1, 2 ];
+    options.stdio = stdio || [ 'ignore', 1, 2 ];
   }
   let spawn = use_async ? proc.spawn : proc.spawnSync;
+  //console.log(cmd, params, options);
   let pr = spawn(cmd, params, options);
   if( !use_async && exit_on_error && pr.status != 0){
     process.exit(pr.status);
@@ -123,33 +126,41 @@ export const checkOpenrestyInitiated = () => {
 const decoder = new StringDecoder('utf8');
 
 export const resetDb = (containers, logger) => {
-  const psql = runSql(['postgres',
+  logger.log('starting db reset');
+  const recreatedb = runSql(['postgres',
+    '--quiet',
     '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}';`,
     '-c', `DROP DATABASE if exists ${DB_NAME};`,
     '-c', `CREATE DATABASE ${DB_NAME};`
-  ], logger);
-  psql.stderr.on('data', data => logger.log(decoder.write(data)));
-  psql.on('close', code =>{
-    const _psql = runSql( [DB_NAME, '-f', DB_DIR +'init.sql' ], logger)
-    _psql.stderr.on('data', data => logger.log(decoder.write(data)));
-    _psql.on('close', (code) => {
-      if(code == 0){
-        if(containers['postgrest']) {sendHUP(containers['postgrest'].name);}
-        if(containers['openresty']) {sendHUP(containers['openresty'].name);}
-      }
-    })
-  });
+  ], false);
+  let err = decoder.write(recreatedb.stderr).trim();
+  if(err.length>0) logger.log(err);
+  const psql = runSql( [DB_NAME, '-f', DB_DIR +'init.sql' ], false)
+  err = decoder.write(psql.stderr).trim();
+  if(err.length>0) logger.log(err);
+  if(psql.status == 0){
+    //support old style starter kit
+    if(containers['postgrest']) {sendHUP(containers['postgrest'].name, 'SIGUSR1');}
+    if(containers['openresty']) {sendHUP(containers['openresty'].name);}
+
+    logger.log('db reset done');
+  }
+  else{
+    logger.log('db reset failed');
+  }
+  
   return psql;
 }
 
-const sendHUP = containerName => proc.spawn('docker',['kill', '-s', 'HUP', containerName]);
+const sendHUP = (containerName, signal = 'HUP') => proc.spawn('docker',['kill', '-s', signal, containerName]);
 
-const runSql = commands => {
+const runSql = (commands, use_async = true) => {
   const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR, '--set', 'ON_ERROR_STOP=1']
   var env = Object.create( process.env );
   env.PGPASSWORD = SUPER_USER_PASSWORD;
   env.DIR = DB_DIR;
-  return runCmd(PSQL_CMD, connectParams.concat(commands), { env: env }, undefined, undefined, true);
+  const stdio = use_async ? undefined : [ 'ignore', 'pipe', 'pipe' ]
+  return runCmd(PSQL_CMD, connectParams.concat(commands), { env: env }, undefined, undefined, use_async, stdio);
 }
 
 export const runWatcher = (containers, logger, watcherReadyCb, reloadStartCb, reloadEndCb) => {
@@ -158,26 +169,32 @@ export const runWatcher = (containers, logger, watcherReadyCb, reloadStartCb, re
     const relPath = path.replace(APP_DIR, '.');
     reloadStartCb(relPath);
     if(path.endsWith('.sql')){
-      resetDb(containers, logger).on('close', reloadEndCb);
+      const result = resetDb(containers, logger);
+      reloadEndCb(result.status);
     }else{
-      if(containers['openresty'])
-        sendHUP(containers['openresty'].name).on('close', reloadEndCb);
-      else
-        reloadEndCb();
+      if(containers['openresty']){
+        sendHUP(containers['openresty'].name).on('close', function(){ reloadEndCb(0) });
+      }
+      else{
+        reloadEndCb(0);
+      }
     }
   })
   .on('ready', watcherReadyCb);
 }
 
 export const dockerContainers = () => {
-  const containers = proc.execSync(`docker ps -a -f name=${COMPOSE_PROJECT_NAME} --format "{{.Names}}"`).toString('utf8').trim().split("\n");
-  return containers.reduce( ( acc, containerName ) => {
+  const filters_params = proc.execSync(`docker-compose ps -q | cut -c 1-12`).toString('utf8').trim().split("\n").map(id => '--filter id='+id);
+  const containers = proc.execSync(`docker ps -a --format "{{.Names}}" ` + filters_params.join(' ')).toString('utf8').trim().split("\n");
+  const result = containers.reduce( ( acc, containerName ) => {
     let key = containerName.replace(COMPOSE_PROJECT_NAME,'').replace('1','').replace(/_/g,'');
+    if(key == "") return acc;
     acc[key] = {
       name: containerName,
       title: containerName.replace(COMPOSE_PROJECT_NAME+'_','').replace(/_1$/,'')
     };
     return acc;
   }, {});
+  return result;
 }
 

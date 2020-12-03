@@ -27,6 +27,10 @@ const reloadEnd = () => {
 }
 
 const containers = dockerContainers();
+if(Object.keys(containers).length == 0){
+  console.log("No running containers. Exiting ...")
+  process.exit();
+} 
 const watcher = runWatcher(containers, console, watcherReady, reloadStart, reloadEnd);
 
 checkIsAppDir();

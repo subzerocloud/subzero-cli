@@ -13,7 +13,7 @@ After installing, executing the command in the root of your project will give yo
 
 ✓ Convenient interface to view the logs of all stack components<br>
 ✓ Live code reloading (for SQL/Lua/Nginx configs)<br>
-✓ Database schema migration management<br>
+✓ Database schema migration management with auto migration generation using sqitch/migra<br>
 ✓ Community support on [Slack](https://slack.subzero.cloud/)<br>
 
 
@@ -28,7 +28,6 @@ After installing, executing the command in the root of your project will give yo
 
 Use `npm` to install the subzero developer tools
 ```bash
-  docker pull subzerocloud/subzero-cli-tools # install the helper docker image
   npm install --global --production windows-build-tools # windows ONLY!!!
   npm install -g subzero-cli # install the cli
   subzero --help # check it was installed
