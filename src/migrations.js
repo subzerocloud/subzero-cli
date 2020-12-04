@@ -35,7 +35,9 @@ import {
     PG_VERSION,
     // SQLWORKBENCH_JAR_PATH,
     // SQLWORKBENCH_CMD,
-    DEFAULT_MIGRATIONS_PRIVILEGES_FILE,
+    MIGRATION_INCLUDE_BEGINNING,
+    MIGRATION_INCLUDE_END,
+
 } from './env.js';
 
 const TMP_DIR = `${MIGRATIONS_DIR}/tmp`;
@@ -52,21 +54,48 @@ const getFreePort = async () => {
   })
 }
 
-const initMigrations = async (debug, dbDockerImage, dryRun, diffTool, includeRoles, includePrivileges, withPrivilegesFile) => {
+const processIncludeFiles = (migrationNumber, migrationName, withFilesBeginning = '', withFilesEnd = '') => {
+  withFilesBeginning = withFilesBeginning?withFilesBeginning.trim():'';
+  withFilesEnd = withFilesEnd?withFilesEnd.trim():'';
+  withFilesBeginning = withFilesBeginning === ''?[]:withFilesBeginning.split(',').map(f=>f.trim());
+  withFilesEnd = withFilesEnd === ''?[]:withFilesEnd.split(',').map(f=>f.trim());
+  withFilesBeginning = withFilesBeginning.map(f => {
+    return (f && !fs.existsSync(f) && fs.existsSync(`${DB_DIR}/${f}`))?`${DB_DIR}/${f}`:f;
+  });
+  withFilesEnd = withFilesEnd.map(f => {
+    return (f && !fs.existsSync(f) && fs.existsSync(`${DB_DIR}/${f}`))?`${DB_DIR}/${f}`:f;
+  });
+
+  let allFilesFound = true;
+  withFilesBeginning.forEach(f=>{
+    if(!fs.existsSync(f)){
+      console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", f);
+      allFilesFound = false;
+    }
+  });
+  withFilesEnd.forEach(f=>{
+    if(!fs.existsSync(f)){
+      console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", f);
+      allFilesFound = false;
+    }
+  })
+  if(!allFilesFound){
+    process.exit(-1);
+  }
+  return {
+    withFilesBeginning: withFilesBeginning,
+    withFilesEnd: withFilesEnd,
+    withFilesBeginningMigrationName: withFilesBeginning.map((_f,i) => `${migrationNumber}-${migrationName}.${i}.beginning`),
+    withFilesEndMigrationName: withFilesEnd.map((_f,i) => `${migrationNumber}-${migrationName}.${i}.end`),
+  }
+}
+const initMigrations = async (debug, dbDockerImage, dryRun, diffTool, includeRoles, includePrivileges, sWithFilesBeginning = '', sWithFilesEnd = '') => {
 
   if (fs.existsSync(MIGRATIONS_DIR)) {
     console.log(`Migrations directory already exists: ${MIGRATIONS_DIR}`);
     process.exit(-1);
   }
 
-  if(withPrivilegesFile && !fs.existsSync(withPrivilegesFile) && fs.existsSync(`${DB_DIR}/${withPrivilegesFile}`)){
-    withPrivilegesFile = `${DB_DIR}/${withPrivilegesFile}`;
-  }
-
-  if(withPrivilegesFile && !fs.existsSync(withPrivilegesFile)){
-    console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", withPrivilegesFile);
-    process.exit();
-  }
 
   let   tempDevDbUri = null,
         tempProdDbUri = null,
@@ -77,7 +106,13 @@ const initMigrations = async (debug, dbDockerImage, dryRun, diffTool, includeRol
         tmpDevSql = `${TMP_DIR}/${migrationNumber}-dev-${name}.sql`,
         tmpProdSql = `${TMP_DIR}/${migrationNumber}-prod-${name}.sql`,
         tmpDeploySql = `${TMP_DIR}/${migrationNumber}-deploy-${name}.sql`,
-        tmpRevertSql = `${TMP_DIR}/${migrationNumber}-revert-${name}.sql`;
+        tmpRevertSql = `${TMP_DIR}/${migrationNumber}-revert-${name}.sql`,
+        {
+          withFilesBeginning: withFilesBeginning, 
+          withFilesEnd: withFilesEnd,
+          withFilesBeginningMigrationName: withFilesBeginningMigrationName,
+          withFilesEndMigrationName: withFilesEndMigrationName
+        } = processIncludeFiles(migrationNumber, name, sWithFilesBeginning, sWithFilesEnd);
 
   fs.mkdirSync(MIGRATIONS_DIR);
   fs.mkdirSync(TMP_DIR);
@@ -91,7 +126,7 @@ const initMigrations = async (debug, dbDockerImage, dryRun, diffTool, includeRol
     process.exit(-1); 
   }
   tempDevDbUri = devDbUri;
-  dumpSchema(devDbUri, tmpDevSql, includeRoles, includePrivileges, (withPrivilegesFile?`${migrationNumber}-${name}.privileges`:null));
+  dumpSchema(devDbUri, tmpDevSql, includeRoles, includePrivileges, withFilesBeginningMigrationName, withFilesEndMigrationName);
   fs.closeSync(fs.openSync(tmpProdSql, 'w'));
 
   if(DIFF_TOOL!=='apgdiff'){
@@ -112,11 +147,11 @@ const initMigrations = async (debug, dbDockerImage, dryRun, diffTool, includeRol
   switch (DIFF_TOOL){
     case 'apgdiff':
       //apgdiffToFile(tmpProdSql, tmpDevSql, tmpDeploySql);
-      apgdiffToFile(tmpDevSql, tmpProdSql, tmpRevertSql, null);
+      apgdiffToFile(tmpDevSql, tmpProdSql, tmpRevertSql, [], []);
       break;
     case 'migra':
       //migraToFile(tempProdDbUri, tempDevDbUri, tmpDeploySql, includeRoles, includePrivileges);
-      migraToFile(tempDevDbUri, tempProdDbUri, tmpRevertSql, false, false, null);
+      migraToFile(tempDevDbUri, tempProdDbUri, tmpRevertSql, false, false, [], []);
       break;
     // case 'sqlworkbench':
     //   sqlworkbenchFile(tempDevDbUri, tempProdDbUri, tmpDeploySql, includeRoles, includePrivileges);
@@ -131,9 +166,13 @@ const initMigrations = async (debug, dbDockerImage, dryRun, diffTool, includeRol
 
   addSqitchMigration(`${migrationNumber}-${name}`);
 
-  if(withPrivilegesFile){
-    fs.copyFileSync(withPrivilegesFile, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${name}.privileges`);
-  }
+  withFilesBeginning.forEach((f,i)=>{
+    fs.copyFileSync(f, `${MIGRATIONS_DIR}/deploy/${withFilesBeginningMigrationName[i]}`);
+  });
+  withFilesEnd.forEach((f,i)=>{
+    fs.copyFileSync(f, `${MIGRATIONS_DIR}/deploy/${withFilesEndMigrationName[i]}`);
+  });
+  
 
   console.log(`Copying ${tmpDevSql.replace(APP_DIR,'')} to ${MIGRATIONS_DIR.replace(APP_DIR,'')}/deploy/${migrationNumber}-${name}.sql`);
   fs.copyFileSync(tmpDevSql, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${name}.sql`);
@@ -157,7 +196,7 @@ const initMigrations = async (debug, dbDockerImage, dryRun, diffTool, includeRol
   }
 };
 
-const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImage, diffTool, includePrivileges, withPrivilegesFile) => {
+const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImage, diffTool, includePrivileges, sWithFilesBeginning = '', sWithFilesEnd = '') => {
 
   if (!fs.existsSync(SQITCH_CONF) || !fs.statSync(SQITCH_CONF).isFile()){
     console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", SQITCH_CONF);
@@ -165,15 +204,8 @@ const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImag
     process.exit(-1);
   }
 
-  if(withPrivilegesFile && !fs.existsSync(withPrivilegesFile) && fs.existsSync(`${DB_DIR}/${withPrivilegesFile}`)){
-    withPrivilegesFile = `${DB_DIR}/${withPrivilegesFile}`;
-  }
-
-  if(withPrivilegesFile && !fs.existsSync(withPrivilegesFile)){
-    console.log("\x1b[31mError:\x1b[0m the file '%s' does not exist", withPrivilegesFile);
-    process.exit();
-  }
-
+  
+  
   if(dbUri){
     checkPostgresConnection(dbUri, '');
   }
@@ -182,7 +214,13 @@ const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImag
         tmpProdSql = `${TMP_DIR}/${migrationNumber}-prod-${name}.sql`,
         tmpDeploySql = `${TMP_DIR}/${migrationNumber}-deploy-${name}.sql`,
         tmpRevertSql = `${TMP_DIR}/${migrationNumber}-revert-${name}.sql`,
-        DIFF_TOOL = diffTool?diffTool:SQL_DIFF_TOOL;
+        DIFF_TOOL = diffTool?diffTool:SQL_DIFF_TOOL,
+        {
+          withFilesBeginning: withFilesBeginning, 
+          withFilesEnd: withFilesEnd,
+          withFilesBeginningMigrationName: withFilesBeginningMigrationName,
+          withFilesEndMigrationName: withFilesEndMigrationName
+        } = processIncludeFiles(migrationNumber, name, sWithFilesBeginning, sWithFilesEnd);
   if( diff ){
     if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
     let tempDevDbUri = null,
@@ -195,12 +233,12 @@ const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImag
       process.exit(-1); 
     }
     tempDevDbUri = devDbUri;
-    if(DIFF_TOOL=='apgdiff'){dumpSchema(devDbUri, tmpDevSql, false, includePrivileges, null);}
+    if(DIFF_TOOL=='apgdiff'){dumpSchema(devDbUri, tmpDevSql, false, includePrivileges, [], []);}
     
 
     if(dbUri){
       tempProdDbUri = dbUri;
-      if(DIFF_TOOL=='apgdiff'){dumpSchema(dbUri, tmpProdSql, false, includePrivileges, null);}
+      if(DIFF_TOOL=='apgdiff'){dumpSchema(dbUri, tmpProdSql, false, includePrivileges, [], []);}
     }
     else{
       const {containerName: prodDbcontainerName, dbUri: prodDbUri, initSqlFile: prodInitSqlFile} = await getTempPostgres(`${MIGRATIONS_DIR}/deploy`, debug, dbDockerImage);
@@ -210,19 +248,19 @@ const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImag
         stopContainer(prodDbcontainerName);
         process.exit(-1); 
       }
-      if(DIFF_TOOL=='apgdiff'){dumpSchema(prodDbUri, tmpProdSql, false, includePrivileges, null);}
+      if(DIFF_TOOL=='apgdiff'){dumpSchema(prodDbUri, tmpProdSql, false, includePrivileges, [], []);}
       tempProdDbUri = prodDbUri;
       tempProdDbcontainerName = prodDbcontainerName;
     }
    
     switch (DIFF_TOOL){
       case 'apgdiff':
-        apgdiffToFile(tmpProdSql, tmpDevSql, tmpDeploySql, (withPrivilegesFile?`${migrationNumber}-${name}.privileges`:null));
-        apgdiffToFile(tmpDevSql, tmpProdSql, tmpRevertSql, null);
+        apgdiffToFile(tmpProdSql, tmpDevSql, tmpDeploySql, withFilesBeginningMigrationName, withFilesEndMigrationName);
+        apgdiffToFile(tmpDevSql, tmpProdSql, tmpRevertSql, [], []);
         break;
       case 'migra':
-        migraToFile(tempProdDbUri, tempDevDbUri, tmpDeploySql, false, includePrivileges, (withPrivilegesFile?`${migrationNumber}-${name}.privileges`:null));
-        migraToFile(tempDevDbUri, tempProdDbUri, tmpRevertSql, false, includePrivileges, null);
+        migraToFile(tempProdDbUri, tempDevDbUri, tmpDeploySql, false, includePrivileges, withFilesBeginningMigrationName, withFilesEndMigrationName);
+        migraToFile(tempDevDbUri, tempProdDbUri, tmpRevertSql, false, includePrivileges, [], []);
         break;
       // case 'sqlworkbench':
       //   sqlworkbenchFile(tempDevDbUri, tempProdDbUri, tmpDeploySql, includeRoles, includePrivileges);
@@ -240,9 +278,12 @@ const addMigration = async (name, note, diff, dryRun, debug, dbUri, dbDockerImag
   if(!dryRun){
     addSqitchMigration(`${migrationNumber}-${name}`, note);
     if(diff){
-      if(withPrivilegesFile){
-        fs.copyFileSync(withPrivilegesFile, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${name}.privileges`);
-      }
+      withFilesBeginning.forEach((f,i)=>{
+        fs.copyFileSync(f, `${MIGRATIONS_DIR}/deploy/${withFilesBeginningMigrationName[i]}`);
+      });
+      withFilesEnd.forEach((f,i)=>{
+        fs.copyFileSync(f, `${MIGRATIONS_DIR}/deploy/${withFilesEndMigrationName[i]}`);
+      });
       if(fs.existsSync(tmpDeploySql)){
         fs.copyFileSync(tmpDeploySql, `${MIGRATIONS_DIR}/deploy/${migrationNumber}-${name}.sql`);
       }
@@ -400,7 +441,7 @@ const dumpRoles = (dbUri, file) => {
   fs.writeFileSync(file, data, 'utf-8');
 }
 
-const dumpSchema = (dbUri, file, includeRoles, includePrivileges, withPrivilegesFile) => {
+const dumpSchema = (dbUri, file, includeRoles, includePrivileges, withFilesBeginning = [], withFilesEnd = []) => {
   console.log(`Writing database dump to ${file.replace(APP_DIR,'')}`);
   if(includeRoles)  { 
     dumpRoles(dbUri, `${file}.roles`)
@@ -414,13 +455,14 @@ const dumpSchema = (dbUri, file, includeRoles, includePrivileges, withPrivileges
   let data = [
     '-- generated with subzero-cli (https://github.com/subzerocloud/subzero-cli)',
     'BEGIN;',
-		!includeRoles ? '' : fs.readFileSync(`${file}.roles`, 'utf-8'),
+    withFilesBeginning.map(f => `\\ir ${f}`).join("\n"),
+    !includeRoles ? '' : fs.readFileSync(`${file}.roles`, 'utf-8'),
     fs.readFileSync(`${file}.schema`, 'utf-8')
       .split("\n")
       .filter(ln => ln.indexOf('COMMENT ON EXTENSION') == -1) //RDS does not allow this
       .filter(ln => ln.indexOf(`OWNER TO ${SUPER_USER};`) == -1) //don't keep owner info when the owner is privileges
       .join("\n"),
-    withPrivilegesFile?`\\ir ${withPrivilegesFile}`:'',
+    withFilesEnd.map(f => `\\ir ${f}`).join("\n"),
     'COMMIT;',
   ];
   fs.writeFileSync(file, data.join("\n"), 'utf-8');
@@ -428,7 +470,7 @@ const dumpSchema = (dbUri, file, includeRoles, includePrivileges, withPrivileges
   fs.unlinkSync(`${file}.schema`);
 }
 
-const apgdiffToFile = (file1, file2, destFile, withPrivilegesFile) => {
+const apgdiffToFile = (file1, file2, destFile, withFilesBeginning = [], withFilesEnd = []) => {
   let cmd = JAVA_CMD
   let params = ['-jar', APGDIFF_JAR_PATH, file1, file2]
   let options = {}
@@ -447,8 +489,9 @@ const apgdiffToFile = (file1, file2, destFile, withPrivilegesFile) => {
       [
         '-- generated with subzero-cli (https://github.com/subzerocloud/subzero-cli)',
         'BEGIN;',
+        withFilesBeginning.map(f => `\\ir ${f}`).join("\n"),
         p.stdout.toString(),
-        withPrivilegesFile?`\\ir ${withPrivilegesFile}`:'',
+        withFilesEnd.map(f => `\\ir ${f}`).join("\n"),
         'COMMIT;',
       ].join("\n")
     );
@@ -467,7 +510,7 @@ const apgdiffToFile = (file1, file2, destFile, withPrivilegesFile) => {
 //   fs.unlinkSync(`${destFile}.roles_target`);
 // }
 
-const migraToFile = (dburl_from, dburl_target, destFile, includeRoles, includePrivileges, withPrivilegesFile) => {
+const migraToFile = (dburl_from, dburl_target, destFile, includeRoles, includePrivileges, withFilesBeginning = [], withFilesEnd = []) => {
   let cmd = MIGRA_CMD
   let params = ['--unsafe'];
   if(includePrivileges){
@@ -491,9 +534,10 @@ const migraToFile = (dburl_from, dburl_target, destFile, includeRoles, includePr
       [
         '-- generated with subzero-cli (https://github.com/subzerocloud/subzero-cli)',
         'BEGIN;',
+        withFilesBeginning.map(f => `\\ir ${f}`).join("\n"),
         roles,
         p.stdout.toString(),
-        withPrivilegesFile?`\\ir ${withPrivilegesFile}`:'',
+        withFilesEnd.map(f => `\\ir ${f}`).join("\n"),
         'COMMIT;',
       ].join("\n")
     );
@@ -573,22 +617,22 @@ program
   .option("--diff-tool <diff-tool>", "Use apgdiff, migra, sqlworkbench for diffing")
   .option("--with-roles", "Include ROLE create/drop statements")
   .option("--with-privileges", "Include grant/revoke commands")
-  .option("--with-privileges-file <file>", "Include grant/revoke from a specific file")
+  .option("--include-beginning <\"file1.sql, file2.sql, ...\">", "Include specific sql scripts at the beginning of the migration")
+  .option("--include-end <\"file1.sql, file2.sql, ...\">", "Include specific sql scripts at the end of the migration")
   .description('Setup sqitch config and create the first migration')
   .action((options) => { 
     checkIsAppDir();
-    if(options.withPrivileges && options.withPrivilegesFile){
-      console.log(`\x1b[31mERROR:\x1b[0m --with-privileges and --with-privileges-file can not be used at the same time`);
-      process.exit()
+    
+    let withFilesBeginning = options.includeBeginning;
+    let withFilesEnd = options.includeEnd;
+    if(!withFilesBeginning){
+      withFilesBeginning = MIGRATION_INCLUDE_BEGINNING;
     }
-    let withPrivilegesFile = options.withPrivilegesFile;
-    if(!withPrivilegesFile){
-      withPrivilegesFile = DEFAULT_MIGRATIONS_PRIVILEGES_FILE;
+    if(!withFilesEnd){
+      withFilesEnd = MIGRATION_INCLUDE_END;
     }
-    if(options.withPrivileges && withPrivilegesFile){
-      console.log(`\x1b[31mWARNING:\x1b[0m using --with-privileges instead of ${withPrivilegesFile} file`);
-    }
-    initMigrations(options.debug, options.dbDockerImage, options.dryRun, options.diffTool, options.withRoles, options.withPrivileges, withPrivilegesFile);
+    
+    initMigrations(options.debug, options.dbDockerImage, options.dryRun, options.diffTool, options.withRoles, options.withPrivileges, withFilesBeginning, withFilesEnd);
   });
 
 program
@@ -597,7 +641,8 @@ program
   .option("-d, --no-diff", "Add empty sqitch migration (no diff)")
   .option("--diff-tool <diff-tool>", "Use apgdiff, migra, sqlworkbench for diffing")
   .option("--with-privileges", "Include grant/revoke commands (experimental)")
-  .option("--with-privileges-file <file>", "Include grant/revoke from a specific file")
+  .option("--include-beginning <\"file1.sql, file2.sql, ...\">", "Include specific sql scripts at the beginning of the migration")
+  .option("--include-end <\"file1.sql, file2.sql, ...\">", "Include specific sql scripts at the end of the migration")
   .option("--dry-run", "Don not create migrations files, only output the diff")
   .option("--debug", "Verbose output and leaves the temporary files (used to create the migration) in place")
   .option("--db-uri <uri>", "Diff against a database schema (By default we diff src/ and migrations/deploy/ directories)")
@@ -605,21 +650,20 @@ program
   .description('Adds a new sqitch migration')
   .action((name, options) => {
       checkIsAppDir();
-      if(options.withPrivileges && options.withPrivilegesFile){
-        console.log(`\x1b[31mERROR:\x1b[0m --with-privileges and --with-privileges-file can not be used at the same time`);
-        process.exit()
-      }
+      
       if(options.withPrivileges){
         console.log(`\x1b[31mWARNING: --with-privileges is an experimental feature and the output is incomplete, do not rely on it\x1b[0m`);
       }
-      let withPrivilegesFile = options.withPrivilegesFile;
-      if(!withPrivilegesFile){
-        withPrivilegesFile = DEFAULT_MIGRATIONS_PRIVILEGES_FILE;
+      let withFilesBeginning = options.includeBeginning;
+      let withFilesEnd = options.includeEnd;
+      if(!withFilesBeginning){
+        withFilesBeginning = MIGRATION_INCLUDE_BEGINNING;
       }
-      if(options.withPrivileges && withPrivilegesFile){
-        console.log(`\x1b[31mWARNING:\x1b[0m using --with-privileges instead of ${withPrivilegesFile} file`);
+      if(!withFilesEnd){
+        withFilesEnd = MIGRATION_INCLUDE_END;
       }
-      addMigration(name, options.note, options.diff, options.dryRun, options.debug, options.dbUri, options.dbDockerImage, options.diffTool, options.withPrivileges, withPrivilegesFile);
+      
+      addMigration(name, options.note, options.diff, options.dryRun, options.debug, options.dbUri, options.dbDockerImage, options.diffTool, options.withPrivileges, withFilesBeginning, withFilesEnd);
   });
 
 program
