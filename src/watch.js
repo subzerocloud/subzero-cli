@@ -45,8 +45,7 @@ process.stdin.on('keypress', (str, key) => {
     process.exit();
 
   if(key.name === "r") {
-    console.log("\nResetting the db..");
-    resetDb(containers, console).on('close', () => console.log("Db reset done"));
+    resetDb(containers, console);
   }
 });
 
