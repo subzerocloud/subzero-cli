@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 "use strict";
 
-import fs from 'fs';
-
 import proc from 'child_process';
 import React, {Component} from 'react';
 import blessed from 'neo-blessed';
@@ -13,7 +11,6 @@ const render = createBlessedRenderer(blessed);
 
 import {highlight} from 'cli-highlight';
 import {StringDecoder} from 'string_decoder';
-// import Spinner from './spinner.js';
 import {
     APP_DIR,
     LOG_LENGTH,
@@ -23,7 +20,7 @@ import {
     DB_LOG_LINE_MARKER,
     HIDE_DB_LOG_LINE,
 } from './env.js';
-import {checkIsAppDir,resetDb, runWatcher, dockerContainers} from './common.js';
+import {checkIsAppDir,resetDb, runWatcher, dockerContainers, restartContainer} from './common.js';
 
 const decoder = new StringDecoder('utf8');
 
@@ -197,9 +194,10 @@ class Dashboard extends Component {
     const container = containers[key];
     const logger = this.refs['log_'+key];
     logger.log(`Restarting ${container.title} container ...`)
-    proc.spawn('docker',['restart', container.name]).on('close', (code) => {
+    const self = this;
+    restartContainer(container.name, function(){
       logger.log('Done');
-      this.startLogTail(key, Math.floor(new Date() / 1000), false);
+      self.startLogTail(key, Math.floor(new Date() / 1000), false);
     });
   }
   handleKeyPress = (key) => {

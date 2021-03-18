@@ -61,3 +61,4 @@ export const WATCH_PATTERNS = process.env.WATCH_PATTERNS
 export const PLATFORM = os.platform();
 export const DOCKER_HOST_OS = USE_DOCKER_IMAGE ? proc.execSync('docker info -f "{{ .OSType}}"').toString('utf8').trim() : null;
 export const PG_VERSION = process.env.PG_VERSION ? process.env.PG_VERSION : null;
+export const SQL_INIT_FILE = process.env.SQL_INIT_FILE || '/init.sql'

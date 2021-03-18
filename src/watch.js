@@ -1,12 +1,6 @@
 #!/usr/bin/env node
 "use strict";
-
-
 import readline from 'readline';
-
-import colors from 'colors';
-
-
 import {
   APP_DIR,
   WATCH_PATTERNS
@@ -26,6 +20,8 @@ const reloadEnd = () => {
   console.log('Reload done');
 }
 
+checkIsAppDir();
+
 const containers = dockerContainers();
 if(Object.keys(containers).length == 0){
   console.log("No running containers. Exiting ...")
@@ -33,9 +29,8 @@ if(Object.keys(containers).length == 0){
 } 
 const watcher = runWatcher(containers, console, watcherReady, reloadStart, reloadEnd);
 
-checkIsAppDir();
 
-console.log("You can reset the db by pressing the 'r' button\n".white);
+console.log("You can reset the db by pressing the 'r' button\n");
 
 readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);

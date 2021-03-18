@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import chokidar from 'chokidar';
 import {StringDecoder} from 'string_decoder';
+import colors from 'colors';
 import {
   APP_DIR,
   PSQL_CMD,
@@ -23,7 +24,8 @@ import {
   DB_DIR,
   COMPOSE_PROJECT_NAME,
   WATCH_PATTERNS,
-  MIGRA_CMD
+  MIGRA_CMD,
+  SQL_INIT_FILE
 } from './env.js';
 
 export const runCmd = (cmd, params, options = {}, silent = false, exit_on_error = false, use_async = false, stdio) => {
@@ -101,8 +103,7 @@ export const notEmptyString = s => (typeof s == 'string')&&s.trim().length;
 export const checkIsAppDir = () => {
   if(!fileExists(`.env`)){
     console.log("Error: ".red + ".env file does not exist");
-    console.log("Please run this command in a directory that contains a subzero/postgrest project.\nYou can create a poject with " +
-                "`subzero base-project`".white);
+    console.log("Please run this command in a directory that contains a subzero project.");
     process.exit(0);
   }
 }
@@ -135,7 +136,7 @@ export const resetDb = (containers, logger) => {
   ], false);
   let err = decoder.write(recreatedb.stderr).trim();
   if(err.length>0) logger.log(err);
-  const psql = runSql( [DB_NAME, '-f', DB_DIR +'/init.sql' ], false)
+  const psql = runSql( [DB_NAME, '-f', DB_DIR + SQL_INIT_FILE ], false)
   err = decoder.write(psql.stderr).trim();
   if(err.length>0) logger.log(err);
   if(psql.status == 0){
@@ -153,6 +154,7 @@ export const resetDb = (containers, logger) => {
 }
 
 const sendHUP = (containerName, signal = 'HUP') => proc.spawn('docker',['kill', '-s', signal, containerName]);
+export const restartContainer = (containerName, callback) => proc.spawn('docker',['restart', containerName]).on('close', callback);
 
 const runSql = (commands, use_async = true) => {
   const connectParams = ['-U', SUPER_USER, '-h', 'localhost', '--set', 'DIR='+DB_DIR+'/', '--set', 'ON_ERROR_STOP=1']
@@ -175,6 +177,9 @@ export const runWatcher = (containers, logger, watcherReadyCb, reloadStartCb, re
       if(containers['openresty']){
         sendHUP(containers['openresty'].name).on('close', function(){ reloadEndCb(0) });
       }
+      else if(containers['subzero']){
+        restartContainer(containers['subzero'].name, function(){ reloadEndCb(0) });
+      }
       else{
         reloadEndCb(0);
       }
@@ -184,7 +189,7 @@ export const runWatcher = (containers, logger, watcherReadyCb, reloadStartCb, re
 }
 
 export const dockerContainers = () => {
-  const filters_params = proc.execSync(`docker-compose ps -q | cut -c 1-12`).toString('utf8').trim().split("\n").map(id => '--filter id='+id);
+  const filters_params = proc.execSync(`docker-compose ps -q 2> /dev/null | cut -c 1-12`).toString('utf8').trim().split("\n").map(id => '--filter id='+id);
   const containers = proc.execSync(`docker ps -a --format "{{.Names}}" ` + filters_params.join(' ')).toString('utf8').trim().split("\n");
   const result = containers.reduce( ( acc, containerName ) => {
     let key = containerName.replace(COMPOSE_PROJECT_NAME,'').replace('1','').replace(/_/g,'');
