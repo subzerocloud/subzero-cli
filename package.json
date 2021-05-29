@@ -31,7 +31,7 @@
     "sleep": "6.1.0",
     "sql-formatter": "^2.3.4",
     "react-devtools-core": "^3.6.3",
-    "ws": "^6.0.0"
+    "ws": "^7.4.6"
   },
   "devDependencies": {
     "@babel/cli": "^7.13.10",
