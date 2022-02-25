@@ -5,7 +5,15 @@ import proc from 'child_process';
 import React, {Component} from 'react';
 import blessed from 'neo-blessed';
 import {createBlessedRenderer} from 'react-blessed';
-import sqlFormatter from "sql-formatter";
+import { format } from 'sql-formatter';
+
+window.addEventListener = () => {};
+window.requestAnimationFrame = () => {
+  throw new Error('requestAnimationFrame is not supported in Node');
+};
+window.cancelAnimationFrame = () => {
+  throw new Error('cancelAnimationFrame is not supported in Node');
+};
 
 const render = createBlessedRenderer(blessed);
 
@@ -55,7 +63,12 @@ const printSQL = logger => {
     }
     let match = line.match(/(.*)(LOG:\s+execute\s+[^:]+:)([\s\S]*)/);
     if(match){
-      let sql = sqlFormatter.format(match[3]).split("\n").join("\n\t\t");
+      let sql = '';
+      try {
+        sql = format(match[3]).split("\n").join("\n\t\t");
+      } catch (error) {
+        sql = match[3].split("\n").join("\n\t\t");
+      }
       logger.log(match[1] + match[2] + "\n" + highlight("\t\t"+sql, {language : 'sql', ignoreIllegals: true}) + "\n")
       //logger.log(match[1] + match[2] + "\n" + "\t\t"+sql + "\n")
     }
@@ -350,7 +363,8 @@ const runDashboard = () => {
     autoPadding: true,
     smartCSR: true,
     title: 'subZero devtools',
-    fullUnicode: true
+    fullUnicode: true,
+    debug: true
   });  
   render(<Dashboard containers={dockerContainers()} />, screen);
 }
