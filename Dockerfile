@@ -18,7 +18,7 @@ RUN echo "installing dependencies" \
         tzdata \
         perl \
         openjdk8-jre \
-        nodejs nodejs-npm \
+        nodejs npm \
     && cd /tmp \
     && curl -OSL https://github.com/subzerocloud/apgdiff/releases/download/${APGDIFF_VERSION}-subzero/apgdiff-${APGDIFF_VERSION}-subzero.jar \
     && mv apgdiff-${APGDIFF_VERSION}-subzero.jar /usr/local/bin/apgdiff.jar \
