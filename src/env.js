@@ -13,7 +13,7 @@ let cfg = {
 if (fs.existsSync(cfg.path) && fs.statSync(cfg.path).isFile()) {
   config(cfg);//.env file vars added to process.env
   process.env.ENV_FILE = resolve(cfg.path).replace(/\\/g, '/');
-  process.env.APP_DIR = dirname(process.env.ENV_FILE);
+  process.env.APP_DIR = (process.env.APP_DIR && resolve(process.env.APP_DIR)) || dirname(process.env.ENV_FILE);
 }
 
 export const COMPOSE_PROJECT_NAME = process.env.COMPOSE_PROJECT_NAME;
